@@ -1,0 +1,2 @@
+@RG	ID:bam1	SM:hs	LB:bam1	PL:bam1
+@RG	ID:bam3	SM:hs	LB:bam2	PL:bam2
