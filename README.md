@@ -26,7 +26,19 @@ The workflow produces per-sample and per-library QC reports (`html`), alignments
 
 ## Workflow Execution
 ### Workflow test
-Add info on small test run
+A small test run, with all input data stored in public AWS S3 buckets can be run with the following command:
+`nextflow run /PATH/TO/ScaleMethyl -profile PROFILE -params-file /PATH/TO/ScaleMethyl/docs/examples/runParams.yml --outDir output`
+See [dependencies](docs/dependencies.md) for the best `PROFILE` to use on your system.
+
+(Note that this test run is merely a quick and easy way to verify that the pipeline executes properly and does not represent a real assay)
+
+With this command, nextflow will automatically download the example data from the internet (AWS S3), so please ensure that the compute nodes have internet access and storage space. Alternatively you can manually download the data first (using [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
+```
+aws s3 sync s3://scale.pub/testData/methylation/reference/ reference --no-sign-request
+aws s3 sync s3://scale.pub/testData/methylation/downsampled_pbmcs/ fastqs --no-sign-request
+```
+and then run with
+`nextflow run /PATH/TO/ScaleMethyl/ -profile PROFILE --samples /PATH/TO/ScaleMethyl/docs/examples/samples.csv --genome reference/genome.json --fastqDir fastqs --outDir /PATH/TO/OUTPUT_DIR --libStructure /PATH/TO/ScaleMethyl/references/prev_pcr/lib.json`
 
 ### Nextflow Command-line
 **Note** that `nextflow` options are given with a single `-` (e.g. `-profile`), while workflow parameters (e.g. `--outDir`) are given with a double dash `--`.

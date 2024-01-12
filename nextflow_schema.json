@@ -54,7 +54,10 @@
                     "description":"Directory containing pre-generated FASTQs files (or null when using runFolder input)",
                     "format": "directory-path"
                 }
-            }
+            },
+            "required": [
+                "samples"
+            ]
         },
         "output_options": {
             "title": "Output paths and options",
@@ -84,10 +87,7 @@
                     "mimetype": "text/json",
                     "pattern": "^\\S+\\.json$"
                 }
-            },
-            "required": [
-                "genome"
-            ]
+            }
         },
         "analysis_options": {
             "title": "Analysis options",
@@ -102,10 +102,6 @@
                     "pattern": "^\\S+\\.json$",
                     "description": "Json file describing library structure and index/barcode sequences",
                     "fa_icon": "fas fa-file-json"
-                },
-                "trimFastq": {
-                    "type": "boolean",
-                    "description":"Enable trimming before mapping"
                 },
                 "fastqOut": {
                     "type": "boolean",
@@ -140,6 +136,23 @@
                     "description": "Filter for maximum unique/total reads by barcode"
                 }
             }
+        },
+        "reporting_only_options": {
+            "title": "Rerun reporting only options",
+            "type": "object",
+            "fa_icon": "fas fa-sliders-h",
+            "description": "Provide options for running only reporting(samples csv to be provided in Input Options block)",
+            "properties": {
+                "reporting": {
+                    "type": "boolean",
+                    "description": "Enable to rerun only reporting(fastqDir or runFolder not required)"
+                },
+                "resultDir": {
+                    "type": "string",
+                    "description": "Output directory of previous run for which you want to rerun reporting",
+                    "format": "directory-path"
+                }
+            }
         }
 
     },
@@ -158,6 +171,9 @@
         },
         {
             "$ref": "#/definitions/analysis_options"
+        },
+        {
+            "$ref": "#/definitions/reporting_only_options"
         }
     ]
 }

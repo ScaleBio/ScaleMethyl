@@ -1,0 +1,17 @@
+{
+    "barcodes" : [
+        {"read": "index1", "start": 0, "length": 10, "name": "i7", "sequences":"i7.txt"},
+        {"read": "index2", "start": 0, "length": 10, "name": "i5", "sequences":"i5.txt"},
+        {"read": "read2", "start": 0, "length": 8, "name": "tgmt", "sequences": "tgmt.txt", "alias":"Tagmentation", "level":1}
+    ],
+    "sample_barcode": "tgmt",
+    "genomic_r1": {"start":10},
+    "genomic_r2": {"start":28},
+    "bcl_convert": {
+        "OverrideCycles": ["Y", "U", "U", "Y"],
+        "library_barcodes": {},
+        "split_on": "index1",
+        "index1Seqs": "i7.txt",
+        "index2Seqs": "i5.txt"
+    }
+}

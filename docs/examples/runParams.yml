@@ -4,9 +4,16 @@
 ### or a directory with fastq files
 fastqDir : "s3://scale.pub/testData/methylation/downsampled_pbmcs/"
 
+# Please check the PCR indices that you are using. If using an old set the one in references/prev_pcr is what you'd like to use
+# If using a newer set please comment out the below line and use the default in nextflow.config which is references/lib.json
+libStructure: "prev_pcr/lib.json"
+
 ### A file listing all samples in the analysis with their barcode sequences and sample settings
 samples : ${projectDir}/docs/examples/samples.csv
 
 #### Reference information
 ### Path to a .json file defining the reference genome
 genome : ${projectDir}/docs/examples/genome.json
+
+# Value set for the test dataset. Please refer to documentation for an appropriate value to set for your actual experiment
+minUniqCount: 1000

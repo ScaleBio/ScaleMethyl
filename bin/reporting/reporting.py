@@ -2,10 +2,7 @@ import pandas as pd
 import plotly.express as px
 import datapane as dp
 import warnings
-import re
 import json
-import glob
-import os
 import numpy as np
 import plotly.graph_objects as go
 import matplotlib.colors as colors
@@ -142,6 +139,11 @@ class DatapaneUtils:
 
         styler.set_properties(**{"border-color": 'black', "border-style": 'solid !important'})
         return styler
+    
+    @staticmethod
+    def define_color_map(df: pd.DataFrame) -> dict:
+        color_palette = px.colors.qualitative.Light24
+        return {sample: color_palette[i] for i, sample in enumerate(sorted(df['sampleName'].unique()))}
 
 
 class BuildReadsPage:
@@ -155,20 +157,23 @@ class BuildReadsPage:
         self.outDir = writeDir
         self.fragment_df = fragment_df
         self.is_library_report = is_library_report
+        if len(cell_stats_complexity_df['sampleName'].unique()) > 1:
+            self.color_map = DatapaneUtils.define_color_map(cell_stats_complexity_df)
+        else:
+            self.color_map = {cell_stats_complexity_df.iloc[0]['sampleName']: '#636EFA'}
 
     def build_knee_plot(self) -> dp.Plot:
         figs = []
         for sampleName in self.cell_stats_complexity_df["sampleName"].unique():
             df = self.cell_stats_complexity_df[self.cell_stats_complexity_df["sampleName"]==sampleName]
             sorted_uniq = np.sort(df['uniq'])[::-1]
-            figs.append(go.Scatter(x=np.arange(1, len(df)+1), y=sorted_uniq, mode='lines', name=sampleName))
+            figs.append(go.Scatter(x=np.arange(1, len(df)+1), y=sorted_uniq, mode='lines', name=sampleName, line=dict(color=self.color_map[sampleName])))
         if not self.is_library_report:
             figs.append(go.Scatter(x=[min(np.arange(1, len(self.cell_stats_complexity_df)+1)),
                                    max(np.arange(1, len(self.cell_stats_complexity_df)+1))],
                                    y=[self.cell_stats_complexity_df['threshold'].iloc[0],
                                    self.cell_stats_complexity_df['threshold'].iloc[0]],
                                    mode='lines', line=dict(dash="dash", color="green")))
-
 
         layout = go.Layout(xaxis=dict(type='log'), yaxis=dict(type='log'))
         fig = go.Figure(data=figs, layout=layout)
@@ -197,16 +202,65 @@ class BuildReadsPage:
         )
         fig.write_image(f"{self.outDir}/png/{self.sampleName}.fragLenHist.png")
         return dp.Plot(fig)
-
-    def create_total_complexity_plot(self):
+    
+    def create_unique_over_total_plot(self):
         passing_df = self.cell_stats_complexity_df[self.cell_stats_complexity_df["pass_filter"] == "pass"]
         passing_df['sampleName'] = passing_df['sampleName'] + "(passing)"
-        passing_fig = px.scatter(passing_df, x='percent', y='uniq', color='sampleName', opacity=0.8)
+        passing_fig = px.scatter(passing_df, x='pct_pass_total', y='uniq', color='sampleName', opacity=0.8)
 
         failing_df = self.cell_stats_complexity_df[self.cell_stats_complexity_df["pass_filter"]=="fail"]
-        failing_df['sampleName'] = failing_df['sampleName'] + "(failing)"
-        failing_fig = px.scatter(failing_df, x='percent', y='uniq', color='sampleName', opacity=0.2)
+        failing_df['sampleName'] = failing_df['sampleName'] + "(filtered)"
+        failing_fig = px.scatter(failing_df, x='pct_pass_total', y='uniq', color='sampleName', opacity=0.2)
 
+        fig = go.Figure(data=passing_fig.data + failing_fig.data)
+        fig.update_layout(
+            xaxis_title='(PassingReads/TotalReads)%',
+            yaxis_title='Unique Reads',
+            yaxis_type='log',
+            autosize=False,
+            width=800,
+            height=500
+        )
+        fig.write_image(f"{self.outDir}/png/{self.sampleName}.complexityUniqueOverTotal.png")
+        return dp.Plot(fig)
+    
+    def create_unique_over_passing_plot(self):
+        passing_df = self.cell_stats_complexity_df[self.cell_stats_complexity_df["pass_filter"] == "pass"]
+        passing_df['sampleName'] = passing_df['sampleName'] + "(passing)"
+        passing_fig = px.scatter(passing_df, x='pct_uniq_pass', y='uniq', color='sampleName', opacity=0.8)
+
+        failing_df = self.cell_stats_complexity_df[self.cell_stats_complexity_df["pass_filter"]=="fail"]
+        failing_df['sampleName'] = failing_df['sampleName'] + "(filtered)"
+        failing_fig = px.scatter(failing_df, x='pct_uniq_pass', y='uniq', color='sampleName', opacity=0.2)
+
+        fig = go.Figure(data=passing_fig.data + failing_fig.data)
+        fig.update_layout(
+            xaxis_title='(UniqueReads/PassingReads)%',
+            yaxis_title='Unique Reads',
+            yaxis_type='log',
+            autosize=False,
+            width=800,
+            height=500
+        )
+        fig.write_image(f"{self.outDir}/png/{self.sampleName}.complexityUniqueOverPassing.png")
+        return dp.Plot(fig)
+
+    def create_total_complexity_plot(self):
+        if len(self.cell_stats_complexity_df['sampleName'].unique()) > 1:
+            color_palette = px.colors.qualitative.Light24
+            passing_color_map = {sample+"(passing)": color_palette[i] for i, sample in enumerate(sorted(self.cell_stats_complexity_df['sampleName'].unique()))}
+            failing_color_map = {sample+"(filtered)": color_palette[i] for i, sample in enumerate(sorted(self.cell_stats_complexity_df['sampleName'].unique()))}
+        else:
+            passing_color_map = {self.cell_stats_complexity_df.iloc[0]['sampleName']+"(passing)": '#636EFA'}
+            failing_color_map = {self.cell_stats_complexity_df.iloc[0]['sampleName']+"(filtered)": '#636EFA'}
+        passing_df = self.cell_stats_complexity_df[self.cell_stats_complexity_df["pass_filter"] == "pass"]
+        passing_df['sampleName'] = passing_df['sampleName'] + "(passing)"
+        passing_fig = px.scatter(passing_df, x='percent', y='uniq', color='sampleName', opacity=0.8, color_discrete_map=passing_color_map)
+
+        failing_df = self.cell_stats_complexity_df[self.cell_stats_complexity_df["pass_filter"]=="fail"]
+        failing_df['sampleName'] = failing_df['sampleName'] + "(filtered)"
+        failing_fig = px.scatter(failing_df, x='percent', y='uniq', color='sampleName', opacity=0.2, color_discrete_map=failing_color_map)
+        
         fig = go.Figure(data=passing_fig.data + failing_fig.data)
         fig.update_layout(
             xaxis_title='(Uniq/TotalReads) %',
@@ -233,14 +287,19 @@ class BuildReadsPage:
 
     def build_combined_passing_met_stats_table(self, combined_passing_met: pd.DataFrame) -> dp.Table:
         combined_passing_met.iloc[0, combined_passing_met.columns.get_loc('Metric')] = "Number of Passing Cells"
-        combined_passing_met.iloc[1, combined_passing_met.columns.get_loc('Metric')] = "Median Total Reads"
-        combined_passing_met.iloc[2, combined_passing_met.columns.get_loc('Metric')] = "Median Unique Reads"
-        combined_passing_met.iloc[3, combined_passing_met.columns.get_loc('Metric')] = "Median of Total Covered C's"
-        combined_passing_met.iloc[4, combined_passing_met.columns.get_loc('Metric')] = "Median of Percent of Unique over Total Reads(%)"
-        combined_passing_met.iloc[5, combined_passing_met.columns.get_loc('Metric')] = "Median of Covered CG's"
-        combined_passing_met.iloc[6, combined_passing_met.columns.get_loc('Metric')] = "Median of Covered CH's"
-        combined_passing_met.iloc[7, combined_passing_met.columns.get_loc('Metric')] = "Median of CG Methylation Percent(%)"
-        combined_passing_met.iloc[8, combined_passing_met.columns.get_loc('Metric')] = "Median of CH Methylation Percent(%)"
+        combined_passing_met.iloc[1, combined_passing_met.columns.get_loc('Metric')] = "Percent Reads in Passing Cells(%)"
+        combined_passing_met.iloc[2, combined_passing_met.columns.get_loc('Metric')] = "Median Total Reads"
+        combined_passing_met.iloc[3, combined_passing_met.columns.get_loc('Metric')] = "Median Passing Reads"
+        combined_passing_met.iloc[4, combined_passing_met.columns.get_loc('Metric')] = "Median Unique Reads"
+        combined_passing_met.iloc[5, combined_passing_met.columns.get_loc('Metric')] = "Median of Percent of Unique over Total Reads(%)"
+        combined_passing_met.iloc[6, combined_passing_met.columns.get_loc('Metric')] = "Median of Total Covered C's"
+        combined_passing_met.iloc[7, combined_passing_met.columns.get_loc('Metric')] = "Median of Covered CG's"
+        combined_passing_met.iloc[8, combined_passing_met.columns.get_loc('Metric')] = "Median of Covered CH's"
+        combined_passing_met.iloc[9, combined_passing_met.columns.get_loc('Metric')] = "Median of CG Methylation Percent(%)"
+        combined_passing_met.iloc[10, combined_passing_met.columns.get_loc('Metric')] = "Median of CH Methylation Percent(%)"
+        combined_passing_met.iloc[11, combined_passing_met.columns.get_loc('Metric')] = "Median of TSS Enrichment"
+        combined_passing_met.iloc[12, combined_passing_met.columns.get_loc('Metric')] = "Percent of Cells with TSS Enrichment > 1"
+        combined_passing_met.iloc[13, combined_passing_met.columns.get_loc('Metric')] = "Percent of Cells with CH Methylation % > 1"
         combined_passing_met.to_csv(f"{self.outDir}/{self.sampleName}.combinedPassingCellStats.csv", index=False)
 
     def build_bc_parser_stats(self, bcParserMetrics: Path | bool) -> dp.Table:
@@ -291,45 +350,97 @@ class BuildReadsPage:
         )
         return (dp.Plot(fig))
 
-    def build_summary_stats_table(self, mapping_stats: pd.DataFrame | bool, trimming_stats: pd.DataFrame | bool) -> dp.Table:
+    def build_summary_stats_table(self, mapping_stats: pd.DataFrame | bool, trimming_stats: pd.DataFrame | bool, met_passing: pd.DataFrame) -> dp.Table:
         if isinstance(mapping_stats, bool) and isinstance(trimming_stats, bool):
             summary_stats = pd.DataFrame.from_dict({
-                "Metric": ["total_reads", "percent_passing_trimming", "percent_passing_mapping", "percent_reads_in_passing_cells"],
+                "Metric": ["total_reads", "percent_passing_trimming", "percent_passing_mapping", "reads_per_passing_cell"],
                 "Value": [np.nan, np.nan, np.nan, np.nan]
+            }, dtype="object")
+        elif met_passing.empty:
+            summary_stats = pd.DataFrame.from_dict({
+                "Metric": ["total_reads",
+                           "percent_passing_trimming",
+                           "percent_passing_mapping",
+                           "reads_per_passing_cell"],
+                "Value": [int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]),
+                          trimming_stats[trimming_stats["Metric"] == "percent_passing"]["Value"].to_list()[0],
+                          (mapping_stats[mapping_stats["Metric"] == "mapped_reads"]["Value"].to_list()[0]/trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0])*100,
+                          np.nan]
             }, dtype="object")
         else:
             summary_stats = pd.DataFrame.from_dict({
-                "Metric": ["total_reads", "percent_passing_trimming", "percent_passing_mapping", "percent_reads_in_passing_cells"],
-                "Value": [int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]), trimming_stats[trimming_stats["Metric"] == "percent_passing"]["Value"].to_list()[0],
+                "Metric": ["total_reads",
+                           "percent_passing_trimming",
+                           "percent_passing_mapping",
+                           "reads_per_passing_cell"],
+                "Value": [int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]),
+                          trimming_stats[trimming_stats["Metric"] == "percent_passing"]["Value"].to_list()[0],
                           (mapping_stats[mapping_stats["Metric"] == "mapped_reads"]["Value"].to_list()[0]/trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0])*100,
-                          (self.cell_stats_complexity_df[self.cell_stats_complexity_df['pass_filter'] == 'pass']['total'].sum()/trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0])*100]
+                          int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]/len(met_passing))]
             }, dtype="object")
         summary_stats.iloc[0, summary_stats.columns.get_loc('Metric')] = "Total Reads"
         summary_stats.iloc[1, summary_stats.columns.get_loc('Metric')] = "Percent Reads Passing Trimming"
         summary_stats.iloc[2, summary_stats.columns.get_loc('Metric')] = "Percent Reads Passing Mapping"
-        summary_stats.iloc[3, summary_stats.columns.get_loc('Metric')] = "Percent Reads In Passing Cells"
-        summary_stats = summary_stats.drop(3)
+        summary_stats.iloc[3, summary_stats.columns.get_loc('Metric')] = "Reads Per Passing Cell"
         return (DatapaneUtils.createTableIgnoreWarning(summary_stats[["Metric", "Value"]].style.pipe(
             DatapaneUtils.styleTable, title="Summary Stats", hideColumnHeaders=True, boldColumn=['Metric'], numericCols=['Value'])))
 
     def construct_passing_cell_stats(self, met_passing: pd.DataFrame) -> dp.Table:
-        met_stats = pd.DataFrame.from_dict({
-            "Metric": ['number_passing_cells', 'median_total_reads', 'median_uniq_reads', 'totalcov_median',
-                       'median_uniq_over_total_percent', 'CGcov_median', 'CHcov_median', 'CG_mC_Pct_median', 'CH_mC_Pct_median', 'sample_name'],
-            "Value": [len(met_passing), int(met_passing['total'].median()), int(met_passing['uniq'].median()), int(met_passing['Coverage'].median()), met_passing['percent'].median(),
-                      met_passing['CG_Cov'].median(), met_passing['CH_Cov'].median(), met_passing['CG_mC_Pct'].median(), met_passing['CH_mC_Pct'].median(), self.sampleName]
-        }, dtype="object")
+        metric_name = ['number_passing_cells',
+                       'percent_reads_in_passing_cells',
+                       'median_total_reads',
+                       'median_passing_reads',
+                       'median_uniq_reads',
+                       'median_uniq_over_total_percent',
+                       'totalcov_median',
+                       'CGcov_median',
+                       'CHcov_median',
+                       'CG_mC_Pct_median',
+                       'CH_mC_Pct_median',
+                       'median_tss_enrich',
+                       'percent_cells_tss_above_1',
+                       'percent_cells_ch_above_1',
+                       'sample_name']
+        if met_passing.empty:
+            met_stats = pd.DataFrame.from_dict({
+                'Metric': metric_name,
+                'Value': [np.nan]* len(metric_name)
+            }, dtype="object")
+        else:
+            met_stats = pd.DataFrame.from_dict({
+                "Metric": metric_name,
+                "Value": [len(met_passing),
+                          (self.cell_stats_complexity_df[self.cell_stats_complexity_df['pass_filter'] == 'pass']['total'].sum()/self.cell_stats_complexity_df['total'].sum())*100,
+                          int(met_passing['total'].median()),
+                          int(met_passing['passing'].median()),
+                          int(met_passing['uniq'].median()),
+                          met_passing['percent'].median(),
+                          int(met_passing['Coverage'].median()),
+                          int(met_passing['CG_Cov'].median()),
+                          int(met_passing['CH_Cov'].median()),
+                          met_passing['CG_mC_Pct'].median(),
+                          met_passing['CH_mC_Pct'].median(),
+                          met_passing['tss_enrich'].median(),
+                          (len(met_passing[met_passing['tss_enrich'] > 1]) / len(met_passing)) * 100,
+                          (len(met_passing[met_passing['CH_mC_Pct'] > 1]) / len(met_passing)) * 100, self.sampleName
+                         ]
+            }, dtype="object")
         met_stats.to_csv(f"{self.outDir}/csv/{self.sampleName}.passingCellSummaryStats.csv", index=False)
         met_stats.iloc[0, met_stats.columns.get_loc('Metric')] = "Number of Passing Cells"
-        met_stats.iloc[1, met_stats.columns.get_loc('Metric')] = "Median Total Reads"
-        met_stats.iloc[2, met_stats.columns.get_loc('Metric')] = "Median Unique Reads"
-        met_stats.iloc[3, met_stats.columns.get_loc('Metric')] = "Median of Total Covered C's"
-        met_stats.iloc[4, met_stats.columns.get_loc('Metric')] = "Median of Percent of Unique over Total Reads(%)"
-        met_stats.iloc[5, met_stats.columns.get_loc('Metric')] = "Median of Covered CG's"
-        met_stats.iloc[6, met_stats.columns.get_loc('Metric')] = "Median of Covered CH's"
-        met_stats.iloc[7, met_stats.columns.get_loc('Metric')] = "Median of CG Methylation Percent(%)"
-        met_stats.iloc[8, met_stats.columns.get_loc('Metric')] = "Median of CH Methylation Percent(%)"
-        met_stats = met_stats.drop(9)
+        met_stats.iloc[1, met_stats.columns.get_loc('Metric')] = "Percent Reads in Passing Cells(%)"
+        met_stats.iloc[2, met_stats.columns.get_loc('Metric')] = "Median Total Reads"
+        met_stats.iloc[3, met_stats.columns.get_loc('Metric')] = "Median Passing Reads"
+        met_stats.iloc[4, met_stats.columns.get_loc('Metric')] = "Median Unique Reads"
+        met_stats.iloc[5, met_stats.columns.get_loc('Metric')] = "Median of Percent of Unique over Total Reads(%)"
+        met_stats.iloc[6, met_stats.columns.get_loc('Metric')] = "Median of Total Covered C's"
+        met_stats.iloc[7, met_stats.columns.get_loc('Metric')] = "Median of Covered CG's"
+        met_stats.iloc[8, met_stats.columns.get_loc('Metric')] = "Median of Covered CH's"
+        met_stats.iloc[9, met_stats.columns.get_loc('Metric')] = "Median of CG Methylation Percent(%)"
+        met_stats.iloc[10, met_stats.columns.get_loc('Metric')] = "Median of CH Methylation Percent(%)"
+        met_stats.iloc[11, met_stats.columns.get_loc('Metric')] = "Median of TSS Enrichment"
+        met_stats.iloc[12, met_stats.columns.get_loc('Metric')] = "Percent of Cells with TSS Enrichment > 1"
+        met_stats.iloc[13, met_stats.columns.get_loc('Metric')] = "Percent of Cells with CH Methylation % > 1"
+        met_stats = met_stats.drop(14)
         return (DatapaneUtils.createTableIgnoreWarning(met_stats[["Metric", "Value"]].style.pipe(
             DatapaneUtils.styleTable, title="Passing Cells Stats Per Cell", hideColumnHeaders=True, boldColumn=['Metric'], numericCols=['Value'])))
 
@@ -343,10 +454,14 @@ class BuildMethylPage:
         self.outDir = writeDir
         self.met_df = met_df
         self.is_library_report = is_library_report
+        if len(met_df['sampleName'].unique()) > 1:
+            self.color_map = DatapaneUtils.define_color_map(met_df)
+        else:
+            self.color_map = {met_df.iloc[0]['sampleName']: '#636EFA'}
 
     def build_cell_covered_box(self) -> dp.Plot:
         IN = self.met_df[['sampleName', 'CG_Cov', 'CH_Cov']].melt(id_vars=['sampleName'], var_name='variable', value_name='value')
-        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers')
+        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers', color_discrete_map=self.color_map)
         fig.update_layout(
             title={'text': 'Cell Cytosines Covered', 'x': 0.5, 'xanchor': 'center'},
             xaxis_title='',
@@ -365,7 +480,7 @@ class BuildMethylPage:
     def build_total_and_unique_reads_box(self) -> dp.Plot:
         tmp_df = self.met_df.rename(columns={"total": "Total", "uniq": "Unique"})
         IN = tmp_df[["sampleName", "Total", "Unique"]].melt(id_vars=["sampleName"], var_name="variable", value_name="value")
-        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers')
+        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers', color_discrete_map=self.color_map)
         fig.update_layout(
             title={'text': 'Total & Unique Reads per Cell', 'x': 0.5, 'xanchor': 'center'},
             xaxis_title='',
@@ -382,7 +497,7 @@ class BuildMethylPage:
 
     def build_uniq_over_total_percent_box(self) -> dp.Plot:
         IN = self.met_df[["sampleName", "percent"]].melt(id_vars=["sampleName"], var_name="variable", value_name="value")
-        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers')
+        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers', color_discrete_map=self.color_map)
         fig.update_layout(
             title={'text': 'Unique over Total Reads(%)', 'x': 0.5, 'xanchor': 'center'},
             xaxis_title='',
@@ -400,7 +515,7 @@ class BuildMethylPage:
 
     def build_cg_cell_methyl_percent_box(self) -> dp.Plot:
         IN = self.met_df[["sampleName", "CG_mC_Pct"]].melt(id_vars=["sampleName"], var_name="variable", value_name="value")
-        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers')
+        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers', color_discrete_map=self.color_map)
         fig.update_layout(
             title={'text': 'CG Cell Methylation', 'x': 0.5, 'xanchor': 'center'},
             xaxis_title='',
@@ -418,7 +533,7 @@ class BuildMethylPage:
 
     def build_ch_cell_methyl_percent_box(self) -> dp.Plot:
         IN = self.met_df[["sampleName", "CH_mC_Pct"]].melt(id_vars=["sampleName"], var_name="variable", value_name="value")
-        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers')
+        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers', color_discrete_map=self.color_map)
         fig.update_layout(
             title={'text': 'CH Cell Methylation', 'x': 0.5, 'xanchor': 'center'},
             xaxis_title='',
@@ -436,7 +551,7 @@ class BuildMethylPage:
 
     def build_cell_cg_per_total(self) -> dp.Plot:
         IN = self.met_df[['sampleName', 'cg_total_ratio']].melt(id_vars=["sampleName"], var_name="variable", value_name="value")
-        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers')
+        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers', color_discrete_map=self.color_map)
         fig.update_layout(
             title={'text': 'CG per Read', 'x': 0.5, 'xanchor': 'center'},
             xaxis_title='',
@@ -451,3 +566,51 @@ class BuildMethylPage:
         )
         fig.write_image(f"{self.outDir}/png/{self.sampleName}.cellCGperTotalReadBox.png")
         return dp.Plot(fig)
+    
+    def build_tss_enrich_box(self) -> dp.Plot:
+        IN = self.met_df[['sampleName', 'tss_enrich']].melt(id_vars=["sampleName"], var_name="variable", value_name="value")
+        fig = px.box(IN, x='variable', y='value', color='sampleName', points='suspectedoutliers', color_discrete_map=self.color_map)
+        fig.update_layout(
+            title={'text': 'Tss Enrichment', 'x': 0.5, 'xanchor': 'center'},
+            xaxis_title='',
+            yaxis_title='Tss Enrichment per Cell',
+            legend_title='',
+            yaxis=dict(range=[0, IN["value"].max() + 1]),
+            autosize=False,
+            width=800,
+            height=500,
+            showlegend=self.is_library_report,
+            boxgroupgap = 0.5
+        )
+        fig.write_image(f"{self.outDir}/png/{self.sampleName}.cellTssEnrichBox.png")
+        return dp.Plot(fig)
+
+    def build_mito_box(self, cell_stats_complexity_df: pd.DataFrame) -> dp.Plot:
+        IN = cell_stats_complexity_df[['pct_mito', 'pass_filter']].melt(id_vars=["pass_filter"], var_name="variable", value_name="value")
+        fig = px.box(IN, x='variable', y='value', color='pass_filter', points='suspectedoutliers')
+        fig.update_layout(
+            title={'text': '% Mito Reads', 'x': 0.5, 'xanchor': 'center'},
+            xaxis_title='',
+            yaxis_title='% Mito Reads',
+            legend_title='',
+            yaxis=dict(range=[0, IN["value"].max() + 1]),
+            autosize=False,
+            width=800,
+            height=500,
+            showlegend=True,
+            boxgroupgap = 0.5
+        )
+        fig.write_image(f"{self.outDir}/png/{self.sampleName}.passingFailingPercentMitoReadsBox.png")
+        return dp.Plot(fig)
+    
+    def build_mito_table(self, cell_stats_complexity_df: pd.DataFrame) -> dp.Table:
+        passing = cell_stats_complexity_df[cell_stats_complexity_df["pass_filter"] == "pass"]
+        failing = cell_stats_complexity_df[cell_stats_complexity_df["pass_filter"] == "fail"]
+        mito_dist_df = pd.DataFrame({
+            'Passing': ['True', 'False'],
+            'Cells with % of Mito Reads > 1': [len(passing[passing["pct_mito"] > 1]), len(failing[failing["pct_mito"] > 1])],
+            'Cells with % of Mito Reads > 5': [len(passing[passing["pct_mito"] > 5]), len(failing[failing["pct_mito"] > 5])],
+            'Cells with % of Mito Reads > 10': [len(passing[passing["pct_mito"] > 10]), len(failing[failing["pct_mito"] > 10])]
+        })
+        return (DatapaneUtils.createTableIgnoreWarning(mito_dist_df.style.pipe(
+            DatapaneUtils.styleTable, title="Mitochondrial Reads for Passing/Failing Cells", hideColumnHeaders=False)))

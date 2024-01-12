@@ -20,11 +20,13 @@ For detailed information about the library and sample level QC reports see [qcRe
 | `trim` | `<sample>.<tn5>/<sample>.fq.gz_trimming_report_R{1,2}.txt` | Detailed trimming reports for demultiplexed sample fastq files   |
 | `fastqc` | `*.html` | [fastqc](https://github.com/s-andrews/FastQC) report for each fastq file in the sequencing library
 | `fastq/<libName>.<laneNum>.demux` | `<sample>.*.fastq.gz` | Sample fastq files (Demultiplexed and barcode error-corrected); only included with `--fastqOut true` |
+| `multiqc` | `<sample>.<tn5>*.multiqc_report.html` | [MultiQC](https://multiqc.info) report for fastq generation, fastQC and trimming
 | `library_barcode_metrics` | `<libName>.metrics.json` | [bc_parser](bc_parser.md) metrics post demux and barcode correction 
-| `bsbolt` | `<sample>.<tn5>/<sample>.<tn5>.bam` | [BSBolt](https://github.com/NuttyLogic/BSBolt) alignment output, including BAM file, with single-cell barcode and UMI information in tags for each sample.tn5; only included with `--bamOut true`
+| `alignment` | `<sample>.<tn5>/<sample>.<tn5>.bam` | [BSBolt](https://github.com/NuttyLogic/BSBolt) alignment output, including BAM file, with single-cell barcode and UMI information in tags for each sample.tn5; only included with `--bamOut true`
 | `bamMerge` | `<sample>.<tn5>/<sample>.<tn5>.bam` | Merged BAM files with reads that have the same tn5(only if starting workflow from BAM). The @RG tags ID, SM, PL, and LB are assigned for each read; only included with `--bamMergeOut true`
 | `bamDeDup` | `<sample>.<tn5>/<sample>.<tn5>.dedup.nsrt.bam` | [sc_dedup](sc_dedup.md) Name-sorted BAM files with duplicate reads removed.  Reads whose leftmost aligned fragment has the same leftmost position as a previously encountered read are considered duplicates; only included with `--bam-dedup-out = true`
-| `matrix` | `matrix/<sample>.{CG,CH}.{mtx,cov.mtx,score.mtx,ratio.mtx}` | [sciMETv2](https://github.com/adeylab/sciMETv2/blob/main/sciMET_meth2mtx.pl) CG & CH binned genome-wide matrix files. Rows are the genomic bin coordinate, and columns are the cellular barcode. Custom binned bed files for the matrix generation can be passed in the `genomeTiles` in the [genomes.json](genomes.md).
+| `matrix` | `<sample>.{CG,CH}.{mtx,cov.mtx,score.mtx,ratio.mtx}` | [sciMETv2](https://github.com/adeylab/sciMETv2/blob/main/sciMET_meth2mtx.pl) CG & CH binned genome-wide matrix files. Rows are the genomic bin coordinate, and columns are the cellular barcode. Custom binned bed files for the matrix generation can be passed in the `genomeTiles` in the [genomes.json](genomes.md); only included with `--matrixGenerationCG true` or `--matrixGenerationCH true`
+| `{cg,ch}_sort_cov` | `<sample>.<tn5>{CG,CH}.chroms.sort/chr*.bed.gz` | Bed sorted raw methylation calls for each barcode. Note these are not filtered for passing cells; only included with `--covOut true` 
 
 ### Matrix Detailed Descriptions 
 

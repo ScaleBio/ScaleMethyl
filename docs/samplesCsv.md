@@ -15,7 +15,7 @@ libIndex2 | Subset of i5 barcodes used for this experiment (optional) | TATCATGA
 threshold | Unique reads number beyond which a cell will be considered as a passing cell (optional) | 1000 | Will be calculated based on a heuristic
 split | Indicates whether bc_parser will produce output files split by TN5 barcode. Also controlled by the splitBarcodeParsing argument in nextflow config (optional) | true | true, because splitBarcodeParsing is set to true by default
 
-* `sample` and `libName` should consist only of letters, numbers, dash (-) and dot (.)
+* `sample` and `libName` should consist only of letters, numbers and dash (-)
 * When running from pre-existing fastq file input, `libName` should match the first part of the fastq file name for this sample, e.g.: `Foo1` for `Foo1_*.fastq.gz`.
 * If you have indexed on the PCR barcodes (i7 and or i5), you can pass the entire TN5 range `1A01-3H12` to `barcodes`
 * When providing sequences in the `libIndex` and `libIndex2` columns, separate them using `;`

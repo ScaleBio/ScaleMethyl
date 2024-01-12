@@ -51,7 +51,7 @@ def main():
     dp_list_read_qc = []
     dp_page = []
 
-    complexity_dfs = [pd.read_csv(complexity_stat) for complexity_stat in args.complexity_stats]
+    complexity_dfs = [pd.read_csv(complexity_stat, dtype={'tgmt_well': 'str'}) for complexity_stat in args.complexity_stats]
     library_complexity_df = pd.concat(complexity_dfs, ignore_index=True, axis=0)
     print(f"Number of rows in combined allCells dataframe: {len(library_complexity_df.index)}", file=sys.stderr)
     
@@ -61,6 +61,8 @@ def main():
     library_met_stats_df = pd.concat(met_stats_df, axis=1)
     library_met_stats_df.reset_index(inplace=True)
     print(f"Number of rows in combined passingCellsMapMethylStats dataframe: {len(library_met_stats_df)}", file=sys.stderr)
+
+    library_complexity_df = library_complexity_df.sort_values(by='sampleName')
 
     # Initialize object for building reads page of the report
     reads_page_obj = BuildReadsPage(f"library.{args.libraryName}", writeDir, library_complexity_df, True)
@@ -73,26 +75,29 @@ def main():
         dp_list_read_qc.append(reads_page_obj.build_bc_parser_stats(False))
     dp_list_read_qc.append(reads_page_obj.build_threshold_table())
     reads_page_obj.build_combined_passing_met_stats_table(library_met_stats_df)
+    dp_page.append(dp.Page(dp.Group(blocks=dp_list_read_qc, columns=2), title="Read QC"))
 
     methyl_dfs = [pd.read_csv(methyl_stat) for methyl_stat in args.methyl_stats]
     library_methyl_df = pd.concat(methyl_dfs, ignore_index=True, axis=0)
+    library_methyl_df = library_methyl_df.sort_values(by='sampleName')
     
-    # Initialize object for building methyl page of report
-    methyl_page_obj = BuildMethylPage(f"library.{args.libraryName}", writeDir, library_methyl_df, True)
-    dp_list_methyl_qc.append(methyl_page_obj.build_cell_covered_box())
-    dp_list_methyl_qc.append(methyl_page_obj.build_cg_cell_methyl_percent_box())
-    dp_list_methyl_qc.append(methyl_page_obj.build_ch_cell_methyl_percent_box())
-    dp_list_methyl_qc.append(methyl_page_obj.build_cell_cg_per_total())
-    dp_list_methyl_qc.append(methyl_page_obj.build_total_and_unique_reads_box())
-    dp_list_methyl_qc.append(methyl_page_obj.build_uniq_over_total_percent_box())
+    if not library_methyl_df.empty:
+        # Initialize object for building methyl page of report
+        methyl_page_obj = BuildMethylPage(f"library.{args.libraryName}", writeDir, library_methyl_df, True)
+        dp_list_methyl_qc.append(methyl_page_obj.build_cell_covered_box())
+        dp_list_methyl_qc.append(methyl_page_obj.build_cg_cell_methyl_percent_box())
+        dp_list_methyl_qc.append(methyl_page_obj.build_ch_cell_methyl_percent_box())
+        dp_list_methyl_qc.append(methyl_page_obj.build_cell_cg_per_total())
+        dp_list_methyl_qc.append(methyl_page_obj.build_total_and_unique_reads_box())
+        dp_list_methyl_qc.append(methyl_page_obj.build_uniq_over_total_percent_box())
+        dp_list_methyl_qc.append(methyl_page_obj.build_tss_enrich_box())
+        dp_page.append(dp.Page(dp.Group(blocks=dp_list_methyl_qc, columns=2), title="Methylation QC"))
 
     dp_list_barcodes = []
     dp_list_barcodes.append(build_combined_plate_plot(library_complexity_df[library_complexity_df["pass_filter"]=="pass"], args.i5_barcodes, "i5", args.tgmt_barcodes, args.libraryName, writeDir))
     dp_list_barcodes.append(build_combined_plate_plot(library_complexity_df[library_complexity_df["pass_filter"]=="pass"], args.i7_barcodes, "i7", args.tgmt_barcodes, args.libraryName, writeDir))
-    
-    dp_page.append(dp.Page(dp.Group(blocks=dp_list_read_qc, columns=2), title="Read QC"))
-    dp_page.append(dp.Page(dp.Group(blocks=dp_list_methyl_qc, columns=2), title="Methylation QC"))
     dp_page.append(dp.Page(dp.Group(blocks=[y for x in dp_list_barcodes for y in x], columns=2), title="Barcodes"))
+    
     dp.save_report(dp_page, path=f"{writeDir}/library.{args.libraryName}.report.html")
 
 
