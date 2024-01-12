@@ -1,9 +1,9 @@
 reports:
-    "library_report/library.*.report.html":
+    "library.*.report.html":
         display: "Combined QC Summary report"
     "**/*.report.html":
         display: "QC Summary report"
-    "library_report/*combinedPassingCellStats.csv":
+    "library.*.combinedPassingCellStats.csv":
         display: "Combined Passing Cell Statistics"
     "fastq/Reports/Demultiplex_Stats.csv":
         display: "bcl-convert demux stats"

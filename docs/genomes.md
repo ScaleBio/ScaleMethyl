@@ -7,7 +7,10 @@ Field |  Description | Required? | Example
 :-- | -- | -- | --
 name | The name of the species / genome-version | Required | human 
 bsbolt_index | Path to the BSBolt index directory | Required | `/PATH/TO/bsbolt.ref` 
-genomeTiles | Path to binned genome sorted bed file | Required | `/PATH/TO/mainChr.50kbp.bed` 
+genomeTiles | Path to binned genome sorted bed file | Required | `/PATH/TO/50kbp.bed` 
+bsbolt_chrs | Path to tsv chromosome labels (mito, filter) to filter from deduplicated BAM | Required | `/PATH/TO/bsbolt_chrs.tsv` 
+tssWin | Path to bed sorted 200nt windows centered at TSS | Required | `/PATH/TO/tss.bed` 
+backgroundWin | Path to bed sorted 200nt windows centered at TSS -1kb upstream | Required | `/PATH/TO/background.bed` 
 
 * All files (`bsbolt_index`, `bins`, ...) can be specified either as
     - an absolute path (`/path/to/genome`)
@@ -21,8 +24,7 @@ bsbolt Index -G {fasta reference} -DB {database output}
 ```
 
 ## Annotation
-All annotated transcripts in the provided _GTF_ file are included in the analysis (i.e. in the output methylation matrices). 
-Genomes are binned into 50kb bins for that are used to create binned methylation matrices. To use bed files with different binning, pass to _genomeTiles_ in the `genome.json`
+All genomic non-overlapping bins (default 50kb) in the provided _genomeTiles_ bed file are used as features for methylation matrices. To use bed files with different sized bins, pass to _genomeTiles_ in the `genome.json`
 
 ## Pre-built genomes
 Pre-build reference genome for human is available for download:

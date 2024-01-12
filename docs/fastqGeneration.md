@@ -6,7 +6,7 @@ Alternatively it is also possible to generate fastq files upstream, for example 
 An example [samplesheet.csv](examples/samplesheet.csv) with typical options is included. Here all 288 TN5 barcode sequences are merged into one set of fastq files.
 
 ## Index reads
-For ScaleBio Methylation libraries the i7 and TN5 barcodes are included in read 1, while the i5 barcode is in read 2. Index reads are needed for demultiplexing and barcode correction. Hence we need to tell `bcl-convert` to generate index read fastqs using the `samplesheet.csv` setting: \
+For ScaleBio Methylation libraries the tagmentation barcodes are included in read 2, while the MET i5 and i7 PCR barcodes are in index reads 1 and 2. Since the index reads are needed for demultiplexing and barcode correction, we need to tell `bcl-convert` to generate index read fastqs using the `samplesheet.csv` setting: \
 `CreateFastqForIndexReads,1`
 
 # Using pre-generated fastq files as workflow input

@@ -19,8 +19,8 @@ def validateName(name):
         name: sample/library name to check
     """
     for n in name:
-        if not (n.isalnum() or n in "-."):
-            print(f"Name should only contain [a-z],[A-Z],[0-9], dash (-) or dot (.): {name}",
+        if not (n.isalnum() or n in "-"):
+            print(f"Name should only contain [a-z],[A-Z],[0-9], dash (-): {name}",
                   file=sys.stderr)
             sys.exit(1)
 

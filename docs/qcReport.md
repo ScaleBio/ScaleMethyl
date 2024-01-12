@@ -3,6 +3,12 @@
 ## Sample Report
 The files called _<SampleName>.report.html_ contain the summary report for a single sample, i.e. all or a subset of TN5 wells from a ScaleMethyl library. It shows read, cell and barcode level summary metrics and plots for library and sample QC.
 
+### Summary Stats
+**Total Reads**: Total barcode reads allocated to the sample\
+**Percent Reads Passing Trimming**: Percent of **Total Reads** that pass trimming filters\
+**Percent Reads Passing Mapping**: Percent of **Total Reads** that can be mapped to the genome\
+**Reads Per Passing Cell**: **Total Reads** divided by the **Number of Passing Cells**
+
 ### Passing Cell Stats
 **Note**: All numbers in this table depend on the number of cells called and hence on the _Unique Reads Threshold_. Check the threshold indicated on the _Knee plot_.
 
