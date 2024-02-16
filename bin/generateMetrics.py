@@ -58,7 +58,7 @@ def construct_cell_stats_df(maxUniq: int, maxUniqTotal: int, sampleName: str, mi
     Construct cell stats for this sample from the cell_stats.tsv file
     Also determine threshold for passing cells based on logic from nf-rna
     """
-    cell_stats_complexity_df = pd.read_csv(cellStats, header=None, names=["BC", "total", "passing", "uniq", "MitoReads"])
+    cell_stats_complexity_df = pd.read_csv(cellStats)
     cell_stats_complexity_df['percent'] = round(
         (cell_stats_complexity_df['uniq'] / cell_stats_complexity_df['total'] * 100), 3)
     cell_stats_complexity_df['pct_uniq_pass'] = round(
@@ -123,27 +123,16 @@ def filter_cells(sampleName: str, barcodes: Path, outDir: Path):
     """
     Construct barcodes for passing cells on a per well basis
     """
-    data = []
-    with open(f"{outDir}/{sampleName}.allCells.csv", "r") as infile:
-        reader = csv.reader(infile)
-        for row in reader:
-            if row[11] == "pass":
-                cell = row[0].split("+")
-                data.append((row[0], cell[2]))
-
-    PV = {}
-    with open(barcodes, "r") as bcfile:
-        reader = csv.reader(bcfile, delimiter="\t")
-        for row in reader:
-            PV[row[0]] = row[1]
-
     Path("filter_cells").mkdir(parents=True, exist_ok=True)
-    for row in data:
-        if row[1] in PV:
-            outfile_name = f"filter_cells/{sampleName}.{PV[row[1]]}.cells"
-            with open(outfile_name, "a") as outfile:
-                outfile.write(row[0] + "\n")
-
+    allCells = pd.read_csv(f"{outDir}/{sampleName}.allCells.csv")
+    passingCells = allCells[allCells["pass_filter"]=="pass"]
+    tgmt = pd.read_csv(barcodes, header=None, names=['tgmt', 'well'], sep='\t')
+    passing_tgmt_dict = {seq: passingCells[passingCells['BC'].str.contains(seq)]['BC'].tolist() +[well] for seq, well in zip(tgmt['tgmt'], tgmt['well'])}
+    for passing_tgmt in passing_tgmt_dict:
+        if len(passing_tgmt_dict[passing_tgmt]) > 1:
+            with open(f'filter_cells/{sampleName}.{passing_tgmt_dict[passing_tgmt][-1]}.cells', 'w') as f:
+                for bc_combination in passing_tgmt_dict[passing_tgmt][:-1]:
+                    f.write(f"{bc_combination}\n")
 
 def main():
     args = accept_args()

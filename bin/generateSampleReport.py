@@ -36,7 +36,7 @@ def accept_args() -> argparse.Namespace:
                         help="Path to output directory for plots and report")
     parser.add_argument("--sampleName", type=str, required=True,
                         help="Identifier for this sample")
-    parser.add_argument("--tssEnrich", type=str, nargs="+",
+    parser.add_argument("--tssEnrich", type=str, nargs="*",
                         help="Path to files containing tss enrichment stats")
     parser.add_argument("--reporting_only", action="store_true", default=False,
                         help="Whether this a reporting only run")
@@ -65,18 +65,19 @@ def main():
     met_passing = pd.read_csv(args.passingCellsMapMethylStats)
     fragment_df = pd.read_csv(args.fragmentHist, header=None, names=["bin", "count"])
 
+    concat_tss_enrich_df = pd.DataFrame()
     if args.reporting_only:
-        concat_tss_enrich_df = pd.read_csv(args.tssEnrich[0])
+        if args.tssEnrich:
+            concat_tss_enrich_df = pd.read_csv(args.tssEnrich[0])
     else:
-        tss_enrich_dfs = []
-        for tss_enrich in args.tssEnrich:
-            if os.stat(tss_enrich).st_size > 1:
-                tss_enrich_dfs.append(pd.read_csv(tss_enrich, sep="\t"))
-        if len(tss_enrich_dfs) == 0:
-            concat_tss_enrich_df = pd.DataFrame()
-        else:
-            concat_tss_enrich_df = pd.concat(tss_enrich_dfs, ignore_index=True, axis=0)
-            concat_tss_enrich_df.to_csv(f"{args.sampleName}.mergedTssEnrich.csv")
+        if args.tssEnrich:
+            tss_enrich_dfs = []
+            for tss_enrich in args.tssEnrich:
+                if os.stat(tss_enrich).st_size > 1:
+                    tss_enrich_dfs.append(pd.read_csv(tss_enrich, sep="\t"))
+            if len(tss_enrich_dfs) > 0:
+                concat_tss_enrich_df = pd.concat(tss_enrich_dfs, ignore_index=True, axis=0)
+                concat_tss_enrich_df.to_csv(f"{args.sampleName}.mergedTssEnrich.csv")
     if not concat_tss_enrich_df.empty:
         met_passing = pd.merge(met_passing, concat_tss_enrich_df, left_on="BC", right_on="BC", how="left")
         print(f"Number of NaN values in tss enrichment column: {met_passing['tss_enrich'].isna().sum()}")
@@ -115,14 +116,16 @@ def main():
         dp_list_methyl_qc.append(methyl_page_obj.build_cell_cg_per_total())
         dp_list_methyl_qc.append(methyl_page_obj.build_total_and_unique_reads_box())
         dp_list_methyl_qc.append(methyl_page_obj.build_uniq_over_total_percent_box())
-        dp_list_methyl_qc.append(methyl_page_obj.build_tss_enrich_box())
+        if not concat_tss_enrich_df.empty:
+            dp_list_methyl_qc.append(methyl_page_obj.build_tss_enrich_box())
         dp_list_methyl_qc.append(methyl_page_obj.build_mito_box(cell_stats_complexity_df))
         dp_list_methyl_qc.append(methyl_page_obj.build_mito_table(cell_stats_complexity_df))
         dp_page.append(dp.Page(dp.Group(blocks=dp_list_methyl_qc, columns=2), title="Methylation QC"))
 
-    # Build barcodes page of the report
-    dp_page.append(dp.Page(dp.Group(blocks=build_plate_plot(cell_stats_complexity_df[cell_stats_complexity_df["pass_filter"]=="pass"],
-                                                            args.tgmt_barcodes, writeDir, args.sampleName), columns=2), title="Barcodes"))
+    if not cell_stats_complexity_df[cell_stats_complexity_df["pass_filter"]=="pass"].empty:
+        # Build barcodes page of the report
+        dp_page.append(dp.Page(dp.Group(blocks=build_plate_plot(cell_stats_complexity_df[cell_stats_complexity_df["pass_filter"]=="pass"],
+                                                                args.tgmt_barcodes, writeDir, args.sampleName), columns=2), title="Barcodes"))
     dp.save_report(dp_page, path=f"{writeDir}/{args.sampleName}.report.html")
 
 
