@@ -393,7 +393,7 @@ if __name__ == '__main__':
         description='Create bcl_convert samplesheet.csv '
                     'from workflow samples.csv')
     parser.add_argument('samples', metavar='SAMPLES.csv', type=Path,
-        help='CSV with samples and index sequences for scATAC workflow run')
+        help='CSV with samples and index sequences for ScaleMethyl workflow run')
     parser.add_argument('libDef', metavar='LIBRARY.json', type=Path,
         help='Library structure definition')
     parser.add_argument('runinfo', metavar='RUNINFO.xml', type=Path,

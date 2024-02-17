@@ -10,7 +10,6 @@ help <- function(){
     cat("--outName       : Output prefix (default is complexity file 1 prefix)                                       [required]\n")
     cat("--annoFile      : barcode annotation with pass_filter column (pass/fail)                                    [required]\n")
     cat("--bamFile       : deduplicated bam file                                                                     [required]\n")
-    cat("--assembly      : ucsc genome assembly to get chr lengths (hg38, hg19, mm39)                                [required]\n")
     cat("\n")
     q()
 }
@@ -23,18 +22,7 @@ if( !is.na(charmatch("-h",args)) || !is.na(charmatch("--help",args))){
     outName       <- sub('--outName=',      '', args[grep('--outName=', args)] )
     annoFile      <- sub('--annoFile=',     '', args[grep('--annoFile=', args)] )
     bamFile       <- sub('--bamFile=',      '', args[grep('--bamFile=', args)] )
-    assembly      <- sub('--assembly=',     '', args[grep('--assembly=', args)] )
 }
-
-# Load assembly specific chromosome libraries
-if ((assembly == "hg19") || (assembly == "hg38")) { organismStr <- "Hsapiens" }
-if ((assembly == "mm39") || (assembly == "mm10")) { organismStr <- "Mmusculus" }
-assemblyLibrary <- paste("BSgenome.", organismStr, ".UCSC.", assembly, sep="")
-
-cat(assemblyLibrary, sep="\n")
-library(assemblyLibrary,character.only=TRUE)
-if ((assembly == "hg19") || (assembly == "hg38")) { organism <- Hsapiens }
-if ((assembly == "mm39") || (assembly == "mm10")) { organism <- Mmusculus }
 
 library(GenomicAlignments)
 library(GenomicRanges)
@@ -46,10 +34,10 @@ library(rtracklayer)
 tss        <- import(tssBed)
 background <- import(backgroundBed)
 # Toss chromosomes x,y,mt
-seqlevels(tss,pruning.mode="coarse") <- seqlevels(tss)[grep("chrX|chrY|chrM",seqlevels(tss), invert=TRUE)]
-seqlevels(background,pruning.mode="coarse") <- seqlevels(background)[grep("chrX|chrY|chrM",seqlevels(background), invert=TRUE)]
+seqlevels(tss,pruning.mode="coarse") <- seqlevels(tss)[grep("chrY|chrM|hs_Y|hs_M|mm_Y|mm_M",seqlevels(tss), invert=TRUE)]
+seqlevels(background,pruning.mode="coarse") <- seqlevels(background)[grep("chrY|chrM|hs_Y|hs_M|mm_Y|mm_M",seqlevels(background), invert=TRUE)]
 
-# Get barcodes for just passing cells
+# Get barcodes for each bam
 anno <- read.table(annoFile, header=TRUE, sep=",")
 anno <- anno[anno$pass_filter == "pass",]
 

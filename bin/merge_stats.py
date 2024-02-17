@@ -39,9 +39,13 @@ def concat_cell_stats(sampleName: str, outDir: Path, cellStatsPath: Path):
     Concatenate cell_stats.tsv files for a sample
     """
     tsv_files = glob.glob(f"{cellStatsPath}/{sampleName}*.cell_stats.tsv")
+    columns = ["BC", "total", "passing", "uniq", "MitoReads"]
     if tsv_files == []:
         print("No cell_stats.tsv file found", file=sys.stderr)
+    if "MouseUnique" in next(open(tsv_files[0])):
+        columns.extend(['HumanUnique', 'MouseUnique'])
     with open(f"{outDir}/{sampleName}.cell_stats.csv", "w") as outfile:
+        outfile.write(f"{','.join(columns)}\n")
         for file in tsv_files:
             with open(file, "r") as infile:
                 lines = infile.readlines()

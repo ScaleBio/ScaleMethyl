@@ -90,7 +90,8 @@ def main():
         dp_list_methyl_qc.append(methyl_page_obj.build_cell_cg_per_total())
         dp_list_methyl_qc.append(methyl_page_obj.build_total_and_unique_reads_box())
         dp_list_methyl_qc.append(methyl_page_obj.build_uniq_over_total_percent_box())
-        dp_list_methyl_qc.append(methyl_page_obj.build_tss_enrich_box())
+        if "tss_enrich" in library_methyl_df.columns:
+            dp_list_methyl_qc.append(methyl_page_obj.build_tss_enrich_box())
         dp_page.append(dp.Page(dp.Group(blocks=dp_list_methyl_qc, columns=2), title="Methylation QC"))
 
     dp_list_barcodes = []

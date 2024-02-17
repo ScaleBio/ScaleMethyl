@@ -7,7 +7,8 @@ Field |  Description | Required? | Example
 :-- | -- | -- | --
 name | The name of the species / genome-version | Required | human 
 bsbolt_index | Path to the BSBolt index directory | Required | `/PATH/TO/bsbolt.ref` 
-genomeTiles | Path to binned genome sorted bed file | Required | `/PATH/TO/50kbp.bed` 
+genomeTiles | Path to binned genome sorted bed file for CG matrix | Required | `/PATH/TO/50kbp.bed` 
+genomeTilesCh | Path to binned genome sorted bed file for CH matrix | Required | `/PATH/TO/250kbp.bed` 
 bsbolt_chrs | Path to tsv chromosome labels (mito, filter) to filter from deduplicated BAM | Required | `/PATH/TO/bsbolt_chrs.tsv` 
 tssWin | Path to bed sorted 200nt windows centered at TSS | Required | `/PATH/TO/tss.bed` 
 backgroundWin | Path to bed sorted 200nt windows centered at TSS -1kb upstream | Required | `/PATH/TO/background.bed` 
@@ -24,7 +25,9 @@ bsbolt Index -G {fasta reference} -DB {database output}
 ```
 
 ## Annotation
-All genomic non-overlapping bins (default 50kb) in the provided _genomeTiles_ bed file are used as features for methylation matrices. To use bed files with different sized bins, pass to _genomeTiles_ in the `genome.json`
+All genomic non-overlapping bins in the provided _genomeTiles_ and _genomeTilesCh_ bed files are used as features for CG and CH methylation matrix generation. 
+* To use bed files with different sized bins (default 50kb) for CG matrix, pass to _genomeTiles_ in the `genome.json`. 
+* To pass a different size bins (default 250kb) for CH matrix, pass to _genomeTilesCh_ in the `genome.json`.
 
 ## Pre-built genomes
 Pre-build reference genome for human is available for download:

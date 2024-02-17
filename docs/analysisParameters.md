@@ -26,7 +26,8 @@ When starting from bam files refer to [mergeBam](mergeBam.md) for details on add
 ### Sample Information
 * `samples : "samples.csv"`
 
-A [file](examples/samples.csv) listing all samples in the analysis with their names, barcode sequences and optional sample settings
+A [file](examples/samples_largekit.csv) listing all samples in the analysis with their names, barcode sequences and optional sample settings.  
+    - See [samples_largekit.csv](examples/samples_largekit.csv) for the large kit, and [samples_smallkit.csv](examples/samples_smallkit.csv) for the small kit.
 
 ### Reference genome
 * `genome : "/genomes/grch38/genome.json"`

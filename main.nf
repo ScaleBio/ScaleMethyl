@@ -20,6 +20,7 @@ def loadGenome(json) {
 	genome.bsbolt_index = expandPath(genome.bsbolt_index, baseDir)
 	genome.bsbolt_chrs = expandPath(genome.bsbolt_chrs, baseDir)
 	genome.genomeTiles = expandPath(genome.genomeTiles, baseDir)
+	genome.genomeTilesCh = expandPath(genome.genomeTilesCh, baseDir)
 	genome.tssWin = expandPath(genome.tssWin, baseDir)
 	genome.backgroundWin = expandPath(genome.backgroundWin, baseDir)
 	return genome
@@ -327,13 +328,12 @@ input:
 	tuple(val(sample), path(cell_map_methyl_stats), path(bam), val(sample_well_coordinate))
 	path(tssBed)
 	path(backgroundBed)
-	val(assembly)
 output:
 	tuple(val(sample), path("${sample_well_coordinate}.tss_enrich.csv"), emit: enrich)
 tag "$sample"
 script:
 	"""
-	met_tssEnrich.R --tssBed=${tssBed} --backgroundBed=${backgroundBed} --outName=${sample_well_coordinate} --annoFile=${cell_map_methyl_stats} --bamFile=${bam} --assembly=${assembly}
+	met_tssEnrich.R --tssBed=${tssBed} --backgroundBed=${backgroundBed} --outName=${sample_well_coordinate} --annoFile=${cell_map_methyl_stats} --bamFile=${bam}
 	"""
 }
 
@@ -683,15 +683,20 @@ workflow {
 			def ns = file.getName().toString().tokenize('.')
 			return tuple(ns[0], file, ns[0] + '.' + ns[1])
 		}
-		tssEnrichIn = generateMetrics.out.cell_map_methyl_stats.cross(dedupTmp).map{
-			tuple(it[0][0], it[0][1], it[1][1], it[1][2])
+		if (params.runTssEnrich) {
+			tssEnrichIn = generateMetrics.out.cell_map_methyl_stats.cross(dedupTmp).map{
+				tuple(it[0][0], it[0][1], it[1][1], it[1][2])
+			}
+			tssEnrichIn.dump(tag: 'tssEnrichIn')
+			tssEnrich(tssEnrichIn, genome.tssWin, genome.backgroundWin)
+			tssEnrichBySample = tssEnrich.out.enrich.filter ({ it[1].size() > 1 }).map({it[1]}).map { file ->
+				def ns = file.getName().toString().tokenize('.')
+				return tuple(ns.get(0), file)
+			}.groupTuple()
 		}
-		tssEnrichIn.dump(tag: 'tssEnrichIn')
-		tssEnrich(tssEnrichIn, genome.tssWin, genome.backgroundWin, genome.name)
-		tssEnrichBySample = tssEnrich.out.enrich.filter ({ it[1].size() > 0 }).map({it[1]}).map { file ->
-			def ns = file.getName().toString().tokenize('.')
-			return tuple(ns.get(0), file)
-		}.groupTuple()
+		else {
+			tssEnrichBySample = samples.map{tuple(it.sample, [])}
+		}
 		report_input = report_input.join(tssEnrichBySample)
 		tssEnrichBySample.dump(tag: 'tssEnrichBySample')
 		// Generate per sample html report
@@ -756,7 +761,7 @@ workflow {
 				return tuple(ns[0] + '.' + ns[1], it[1][1], it[0][1])
 			}
 		}
-                if (params.matrixGenerationCG) {
+        if (params.matrixGenerationCG) {
 			// cgPass -> [sample name.well coordinate, [barcodes for passing cells for that well coordinate], sorted bed file] 
 			cgPass.dump(tag: 'cgPass')
 			mtxCG(genome.genomeTiles,cgPass)
@@ -786,7 +791,7 @@ workflow {
 		if (params.matrixGenerationCH) {
 			// chPass -> [sample name.well coordinate, [barcodes for passing cells for that well coordinate], sorted bed file] 
 			chPass.dump(tag: 'chPass')
-			mtxCH(genome.genomeTiles,chPass)
+			mtxCH(genome.genomeTilesCh,chPass)
 			
 			// merge CH mtx files
 			sampleCHmtx = mtxCH.out.mtx.map({it[1]}).map { file ->
@@ -808,7 +813,7 @@ workflow {
 			
 			mergeMtxCH(sampleCHmtx, sampleCHscore, sampleCHcov, sampleCHratio)
 		}
-        }
+    }
 	// run only reporting
 	else {
 		if (params.resultDir == null) {
@@ -835,8 +840,16 @@ workflow {
 		)}
 		tss_enrich = samples.map{tuple(
 			it.sample,
-			file("${params.resultDir}/concat/${it.sample}.mergedTssEnrich.csv", checkIfExists:true)
+			file("${params.resultDir}/concat/${it.sample}.mergedTssEnrich.csv")
 		)}
+		tss_enrich = tss_enrich.map {
+			if (it[1].exists()) {
+				return tuple(it[0], it[1])
+			}
+			else {
+				return tuple(it[0], [])
+			}
+		}
 		// Generate metrics that are necessary to produce reports
 		generateMetrics(metric_input, libJson.getParent())
 		

@@ -153,6 +153,7 @@ class BuildReadsPage:
     def __init__(self, sampleName: str, writeDir: Path, cell_stats_complexity_df: pd.DataFrame,
                  is_library_report: bool, fragment_df: pd.DataFrame = pd.DataFrame()):
         self.cell_stats_complexity_df = cell_stats_complexity_df
+        # sampleName indicates libName if this is a combined sample report
         self.sampleName = sampleName
         self.outDir = writeDir
         self.fragment_df = fragment_df
@@ -297,9 +298,10 @@ class BuildReadsPage:
         combined_passing_met.iloc[8, combined_passing_met.columns.get_loc('Metric')] = "Median of Covered CH's"
         combined_passing_met.iloc[9, combined_passing_met.columns.get_loc('Metric')] = "Median of CG Methylation Percent(%)"
         combined_passing_met.iloc[10, combined_passing_met.columns.get_loc('Metric')] = "Median of CH Methylation Percent(%)"
-        combined_passing_met.iloc[11, combined_passing_met.columns.get_loc('Metric')] = "Median of TSS Enrichment"
-        combined_passing_met.iloc[12, combined_passing_met.columns.get_loc('Metric')] = "Percent of Cells with TSS Enrichment > 1"
-        combined_passing_met.iloc[13, combined_passing_met.columns.get_loc('Metric')] = "Percent of Cells with CH Methylation % > 1"
+        combined_passing_met.iloc[11, combined_passing_met.columns.get_loc('Metric')] = "Percent of Cells with CH Methylation % > 1"
+        if 'tss_enrich' in combined_passing_met.columns:
+            combined_passing_met.iloc[13, combined_passing_met.columns.get_loc('Metric')] = "Median of TSS Enrichment"
+            combined_passing_met.iloc[14, combined_passing_met.columns.get_loc('Metric')] = "Percent of Cells with TSS Enrichment > 1"
         combined_passing_met.to_csv(f"{self.outDir}/{self.sampleName}.combinedPassingCellStats.csv", index=False)
 
     def build_bc_parser_stats(self, bcParserMetrics: Path | bool) -> dp.Table:
@@ -397,10 +399,29 @@ class BuildReadsPage:
                        'CHcov_median',
                        'CG_mC_Pct_median',
                        'CH_mC_Pct_median',
-                       'median_tss_enrich',
-                       'percent_cells_tss_above_1',
                        'percent_cells_ch_above_1',
-                       'sample_name']
+                       'sample_name'
+                      ]
+        metric_values = [len(met_passing),
+                         (self.cell_stats_complexity_df[self.cell_stats_complexity_df['pass_filter'] == 'pass']['total'].sum()/self.cell_stats_complexity_df['total'].sum())*100,
+                         int(met_passing['total'].median()),
+                         int(met_passing['passing'].median()),
+                         int(met_passing['uniq'].median()),
+                         met_passing['percent'].median(),
+                         int(met_passing['Coverage'].median()),
+                         int(met_passing['CG_Cov'].median()),
+                         int(met_passing['CH_Cov'].median()),
+                         met_passing['CG_mC_Pct'].median(),
+                         met_passing['CH_mC_Pct'].median(),
+                         (len(met_passing[met_passing['CH_mC_Pct'] > 1]) / len(met_passing)) * 100,
+                         self.sampleName
+                        ]
+        if 'tss_enrich' in met_passing.columns:
+            metric_name.append('median_tss_enrich')
+            metric_name.append('percent_cells_tss_above_1')
+            metric_values.append(met_passing['tss_enrich'].median())
+            metric_values.append((len(met_passing[met_passing['tss_enrich'] > 1]) / len(met_passing)) * 100)
+        
         if met_passing.empty:
             met_stats = pd.DataFrame.from_dict({
                 'Metric': metric_name,
@@ -409,23 +430,10 @@ class BuildReadsPage:
         else:
             met_stats = pd.DataFrame.from_dict({
                 "Metric": metric_name,
-                "Value": [len(met_passing),
-                          (self.cell_stats_complexity_df[self.cell_stats_complexity_df['pass_filter'] == 'pass']['total'].sum()/self.cell_stats_complexity_df['total'].sum())*100,
-                          int(met_passing['total'].median()),
-                          int(met_passing['passing'].median()),
-                          int(met_passing['uniq'].median()),
-                          met_passing['percent'].median(),
-                          int(met_passing['Coverage'].median()),
-                          int(met_passing['CG_Cov'].median()),
-                          int(met_passing['CH_Cov'].median()),
-                          met_passing['CG_mC_Pct'].median(),
-                          met_passing['CH_mC_Pct'].median(),
-                          met_passing['tss_enrich'].median(),
-                          (len(met_passing[met_passing['tss_enrich'] > 1]) / len(met_passing)) * 100,
-                          (len(met_passing[met_passing['CH_mC_Pct'] > 1]) / len(met_passing)) * 100, self.sampleName
-                         ]
+                "Value": metric_values
             }, dtype="object")
         met_stats.to_csv(f"{self.outDir}/csv/{self.sampleName}.passingCellSummaryStats.csv", index=False)
+        met_stats = met_stats.drop(12)
         met_stats.iloc[0, met_stats.columns.get_loc('Metric')] = "Number of Passing Cells"
         met_stats.iloc[1, met_stats.columns.get_loc('Metric')] = "Percent Reads in Passing Cells(%)"
         met_stats.iloc[2, met_stats.columns.get_loc('Metric')] = "Median Total Reads"
@@ -437,10 +445,10 @@ class BuildReadsPage:
         met_stats.iloc[8, met_stats.columns.get_loc('Metric')] = "Median of Covered CH's"
         met_stats.iloc[9, met_stats.columns.get_loc('Metric')] = "Median of CG Methylation Percent(%)"
         met_stats.iloc[10, met_stats.columns.get_loc('Metric')] = "Median of CH Methylation Percent(%)"
-        met_stats.iloc[11, met_stats.columns.get_loc('Metric')] = "Median of TSS Enrichment"
-        met_stats.iloc[12, met_stats.columns.get_loc('Metric')] = "Percent of Cells with TSS Enrichment > 1"
-        met_stats.iloc[13, met_stats.columns.get_loc('Metric')] = "Percent of Cells with CH Methylation % > 1"
-        met_stats = met_stats.drop(14)
+        met_stats.iloc[11, met_stats.columns.get_loc('Metric')] = "Percent of Cells with CH Methylation % > 1"
+        if 'tss_enrich' in met_passing.columns:
+            met_stats.iloc[12, met_stats.columns.get_loc('Metric')] = "Median of TSS Enrichment"
+            met_stats.iloc[13, met_stats.columns.get_loc('Metric')] = "Percent of Cells with TSS Enrichment > 1"
         return (DatapaneUtils.createTableIgnoreWarning(met_stats[["Metric", "Value"]].style.pipe(
             DatapaneUtils.styleTable, title="Passing Cells Stats Per Cell", hideColumnHeaders=True, boldColumn=['Metric'], numericCols=['Value'])))
 
