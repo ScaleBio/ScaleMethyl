@@ -29,10 +29,14 @@ sample | barcodes
 Foo | 1A01-3D12
 Bar | 1E01-3H12
 
+* The above is an equal split of tagmentation barcodes across 3 plates. The split is in the middle between row D and row E.
+
 The TN5 wells used for each sample are given in `barcodes` as either
 * An individual value (`1A01`)
-* A range of wells (`1A01-3D12`)
-    * Wells are sorted first by plate number, then plate number and finally number, i.e. `1A01-3A12`.
-        * Plate number ranges from 1-3, which indicates three plates for the TN5
-    * Note that all ranges are read in **column-wise** order; e.g. 1A01-1B02, refers to A01-H01 (all of column 1 in plate 1) plus A02-B02.
+* A range of wells (`1A01-3H12`)
+    * Wells are sorted first by plate number, then by row and finally column, i.e. `1A01-3A12`.
+        * Plate number ranges from 1-3, rows from A-H, and columns from 1-12 which indicate three plates for the TN5 barcodes (288 total)
+    * Note that all ranges are read in **row-wise** order; e.g. 1A01-1B02, refers to A01-H01 (all of column 1 in plate 1) plus A02-B02 (2 wells; rows A and B column 2).
 * A list of values or ranges, separated by semicolon (`;`) (`1A01;1A02-1H02`)
+* If you load a sample by columns, seperate the tagment barcode locations with a (`;`)
+     * e.g. Column 1 of plate 2 = (`2A01;2B01;2C01;2D01;2E01;2F01;2G01;2H01`)
