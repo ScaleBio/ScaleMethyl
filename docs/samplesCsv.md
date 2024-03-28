@@ -17,7 +17,6 @@ split | Indicates whether bc_parser will produce output files split by TN5 barco
 
 * `sample` and `libName` should consist only of letters, numbers and dash (-)
 * When running from pre-existing fastq file input, `libName` should match the first part of the fastq file name for this sample, e.g.: `Foo1` for `Foo1_*.fastq.gz`.
-* If you have indexed on the PCR barcodes (i7 and or i5), you can pass the entire TN5 range `1A01-3H12` to `barcodes`
 * When providing sequences in the `libIndex` and `libIndex2` columns, separate them using `;`
     * If `libIndex` and `libIndex2` are not provided, the assumption is that all the i5 and i7 barcodes have been used 
 
@@ -26,17 +25,24 @@ During analysis the sequencing data is first converted into library fastq files 
 
 sample | barcodes
 -- | --
-Foo | 1A01-3D12
-Bar | 1E01-3H12
+One | 1A01-2D12
+Two | 2E01-2H12
+Three | 3A01-3A06;3B01-3B06;3C01-3C06;3D01-3D06;3E01-3E06;3F01-3F06;3G01-3G06;3H01-3H06
+Four | 3A07-3A12;3B07-3B12;3C07-3C12;3D07-3D12;3E07-3E12;3F07-3F12;3G07-3G12;3H07-3H12
 
-* The above is an equal split of tagmentation barcodes across 3 plates. The split is in the middle between row D and row E.
+* *Sample One:* The first TN5 barcode plate and the first half of the 2nd TN5 plate split row-wise
+* *Sample Two:* The last half of the 2nd TN5 barcode plate, after row D
+* *Sample Three:* The first half of the 3rd TN5 barcode plate split column-wise (columns 1-6)
+* *Sample Four:* The last half of the 3rd TN5 barcode plate split column-wise (columns 7-12)
+
+The TN5 barcode reference is here: `../references/tgmt.txt`
 
 The TN5 wells used for each sample are given in `barcodes` as either
 * An individual value (`1A01`)
 * A range of wells (`1A01-3H12`)
     * Wells are sorted first by plate number, then by row and finally column, i.e. `1A01-3A12`.
         * Plate number ranges from 1-3, rows from A-H, and columns from 1-12 which indicate three plates for the TN5 barcodes (288 total)
-    * Note that all ranges are read in **row-wise** order; e.g. 1A01-1B02, refers to A01-H01 (all of column 1 in plate 1) plus A02-B02 (2 wells; rows A and B column 2).
+    * Note that all ranges are read in **row-wise** order; e.g. 1A01-1B12, refers to rows 1 and 2 of the first Tn5 barcode plate
 * A list of values or ranges, separated by semicolon (`;`) (`1A01;1A02-1H02`)
 * If you load a sample by columns, seperate the tagment barcode locations with a (`;`)
      * e.g. Column 1 of plate 2 = (`2A01;2B01;2C01;2D01;2E01;2F01;2G01;2H01`)

@@ -31,9 +31,9 @@ All genomic non-overlapping bins in the provided _genomeTiles_ and _genomeTilesC
 
 ## Pre-built genomes
 Pre-build reference genome for human is available for download:
-* Human: http://scale.pub.s3.amazonaws.com/genomes/grch38.tgz
-* Mouse: http://scale.pub.s3.amazonaws.com/genomes/mm39.tgz
-* Human/Mouse Barnyard: http://scale.pub.s3.amazonaws.com/genomes/grch38_mm39.tgz
+* Human: http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38.tgz
+* Mouse: http://scale.pub.s3.amazonaws.com/genomes/methyl/mm39.tgz
+* Human/Mouse Barnyard: http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38_mm39.tgz
 
 Download these to your analysis server, unpack them and then use e.g.
 `--genome /PATH/TO/grch38/grch38.json`
