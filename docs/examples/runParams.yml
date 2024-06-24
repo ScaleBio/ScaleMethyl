@@ -9,7 +9,7 @@ fastqDir : "s3://scale.pub/testData/methylation/downsampled_pbmcs/"
 libStructure: "lib.json"
 
 ### A file listing all samples in the analysis with their barcode sequences and sample settings
-samples : ${projectDir}/docs/examples/samples_demo.csv
+samples : ${projectDir}/docs/examples/samples.csv
 
 #### Reference information
 ### Path to a .json file defining the reference genome

@@ -17,11 +17,11 @@ Another option is using the [Conda](https://docs.conda.io/en/latest) package man
 - Install and update conda
     - `conda update -n base -c defaults conda`
 - Install [ScaleBio Tools](scaleBioTools.md)
-    - `/PATH/TO/ScaleMethyl/envs/download-scale-tools.sh`
+    - Execute [envs/download-scale-tools.sh](../envs/download-scale-tools.sh)
 - If running from a sequencer runFolder (.bcls) Illumina [BCL Convert](https://support.illumina.com/sequencing/sequencing_software/bcl-convert.html) is required to be installed (and available on `$PATH`)
 
 See the [Nextflow documentation](https://www.nextflow.io/docs/latest/conda.html) for additional detail of conda support in Nextflow.
 
 ## Manual Dependency installation
 As a final alternative it is also possible to simply install the required dependencies directly, either by hand or using Conda.
-A list of all requirements can be found in `envs/scaleMethyl.conda.yml`, `envs/scaleMethylPyQc.yml` and `envs/download-scale-tools.sh`. All tools need to be available on `$PATH` or in `/PATH/TO/ScaleMethyl/bin/`
+A list of all requirements can be found in [scaleMethyl.conda.yml](../envs/scaleMethyl.conda.yml), [scaleMethylPyQc.yml](../envs/scaleMethylPyQc.yml) and [download-scale-tools.sh](../envs/download-scale-tools.sh). All tools need to be available on `$PATH` or in `/PATH/TO/ScaleMethyl/bin/`

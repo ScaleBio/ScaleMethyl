@@ -21,8 +21,7 @@ This is a Nextflow workflow to run analysis of ScaleBio single-cell methylation 
     * The workflow requires a reference genome, including a [BSBolt](https://github.com/NuttyLogic/BSBolt) index for alignment, and gene annotation. See [Reference Genomes](docs/genomes.md)
 
 ## Outputs
-The workflow produces per-sample and per-library QC reports (`html`), alignments (`bam`), "insert" (`mtx`) and more; See [Outputs](docs/outputs.md) for a full list.
-
+The workflow produces per-sample and per-library QC reports (`html`), alignments (`bam`), per-cell methylation calls (bismark-like `cov` and optionally allcools `allc`), genomic-bin methylation score matrix files (`mtx`) and more; See [Outputs](docs/outputs.md) for a full list.
 
 ## Workflow Execution
 ### Workflow test
@@ -38,7 +37,7 @@ aws s3 sync s3://scale.pub/testData/methylation/reference/ reference --no-sign-r
 aws s3 sync s3://scale.pub/testData/methylation/downsampled_pbmcs/ fastqs --no-sign-request
 ```
 and then run with
-`nextflow run /PATH/TO/ScaleMethyl/ -profile PROFILE --samples /PATH/TO/ScaleMethyl/docs/examples/samples.csv --genome reference/genome.json --fastqDir fastqs --outDir /PATH/TO/OUTPUT_DIR --libStructure /PATH/TO/ScaleMethyl/references/prev_pcr/lib.json`
+`nextflow run /PATH/TO/ScaleMethyl/ -profile PROFILE -params-file /PATH/TO/ScaleMethyl/docs/examples/runParams.yml --genome reference/genome.json --fastqDir fastqs --outDir /PATH/TO/OUTPUT_DIR`
 
 ### Nextflow Command-line
 **Note** that `nextflow` options are given with a single `-` (e.g. `-profile`), while workflow parameters (e.g. `--outDir`) are given with a double dash `--`.

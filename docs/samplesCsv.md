@@ -13,7 +13,7 @@ libName | Name for the sequencing library / fastq files (optional) | ScaleMethyl
 libIndex | Subset of i7 barcodes used for this experiment (optional) | TTGATATGAA;CCTAAGCGGT | All barcodes in references/i7.txt
 libIndex2 | Subset of i5 barcodes used for this experiment (optional) | TATCATGATC;GAGCATATGG | All barcodes in references/i5.txt
 threshold | Unique reads number beyond which a cell will be considered as a passing cell (optional) | 1000 | Will be calculated based on a heuristic
-split | Indicates whether bc_parser will produce output files split by TN5 barcode. Also controlled by the splitBarcodeParsing argument in nextflow config (optional) | true | true, because splitBarcodeParsing is set to true by default
+split | Indicates whether bc_parser will produce output files split by TN5 barcode. Also controlled by the splitFastq argument in nextflow config (optional) | true | true, because splitFastq is set to true by default
 
 * `sample` and `libName` should consist only of letters, numbers and dash (-)
 * When running from pre-existing fastq file input, `libName` should match the first part of the fastq file name for this sample, e.g.: `Foo1` for `Foo1_*.fastq.gz`.
@@ -35,7 +35,7 @@ Four | 3A07-3A12;3B07-3B12;3C07-3C12;3D07-3D12;3E07-3E12;3F07-3F12;3G07-3G12;3H0
 * *Sample Three:* The first half of the 3rd TN5 barcode plate split column-wise (columns 1-6)
 * *Sample Four:* The last half of the 3rd TN5 barcode plate split column-wise (columns 7-12)
 
-The TN5 barcode reference is here: `../references/tgmt.txt`
+The TN5 barcode reference is [here](../references/tgmt.txt)
 
 The TN5 wells used for each sample are given in `barcodes` as either
 * An individual value (`1A01`)

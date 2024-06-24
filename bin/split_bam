@@ -1,0 +1,47 @@
+#!/usr/bin/mawk -f
+# Script to split a BAM file based on chromosome
+BEGIN {
+    FS="\t"   # Set the field separator to tab
+    OFS="\t"  # Set the output field separator to tab
+}
+{
+     # Search for XB tag
+    if (match($0, /\tXB:Z:([xyzXYZ0-9]+)\t/)) {
+        # Extract the alphanumeric value after Z: and before the next tab
+        # RSTART + 6 removes the \tXB:Z: prefix
+        xb_tag = substr($0, RSTART+6, RLENGTH-7)
+        if (xb_tag ~ /^[0-9]+$/) {
+            # If the XB tag is a number, there is nothing to extract
+            next
+        }
+        tlen = $9
+        # count the number of CH methylation
+        # & is used to not modify the xb_tag
+        nch = gsub(/Y|Z/, "&", xb_tag)
+        if (nch / tlen > thresh) {
+            num_elements = split($1, qname, ":")
+            # extract barcode from last part of read name
+            barcode = qname[num_elements]
+            ++high_ch_reads[barcode]
+            # If read is greater than chReadsThreshold % methylated, skip the read
+            next
+        }
+    } else {
+        next # skip reads without XB tag
+    }
+    strand = "+"
+    if (match($0, /\tYS:Z:([CW])_.*\t/)) {
+        # Extract the mapping strand from the YS tag
+        ys_tag = substr($0, RSTART+6, 1)
+        # Assign strand value of "-" if YS tag is C for Crick mapping strand, "+" otherwise
+        strand = (ys_tag == "C") ? "-" : "+"
+    }
+    # Output necessary columns from BAM file to group tsv files
+    # Output columns: qname, rname, pos, strand, xb_tag
+    print $1, $3, $4, strand, xb_tag > sample ".RNAME_" $3 ".tsv"
+}
+END {
+    for (barcode in high_ch_reads) {
+        print barcode, high_ch_reads[barcode] > sample ".high_ch_reads.tsv"
+    }
+}

@@ -1,3 +1,13 @@
+# Version 1.1.0
+* Changed [matrix format](docs/outputs.md#matrix-detailed-descriptions). 
+* Updated QC metrics and sample QC (HTML) report
+
+# Version 1.0.4
+* Added optional [single-cell output formats](docs/analysisParameters.md#optional-intermediate-file-outputs): ALLC and Bismark coverage files
+
+# Version 1.0.3
+* Upgraded datapane version and downgraded urllib version in containers
+
 # Version 1.0.2
 * Updated the testing dataset including examples for runParams.yml, samples.csv and samplesheet.csv's
 * Option for TSS enrichment `--runTssEnrich`
