@@ -8,6 +8,7 @@
 *     MergeMtxCH
 *     CreateALLC
 *     CreateBismark
+*     CreateAmethyst
 */
 
 // Generate binned matrix for each barcode
@@ -16,7 +17,7 @@ input:
 	path(tiles) // Non overlapping genome bins
 	tuple val(sample), val(sample_with_well_coordinate), path(allCells), path(metCG)
 output:
-	tuple val(sample_with_well_coordinate), path("${sample_with_well_coordinate}.CG.score.mtx.gz"), path("${sample_with_well_coordinate}.barcodes.tsv"), path("${sample_with_well_coordinate}.CG.features.tsv"), emit: mtx, optional: true
+	tuple val(sample_with_well_coordinate), path("${sample_with_well_coordinate}.CG.score.mtx"), path("${sample_with_well_coordinate}.barcodes.tsv"), path("${sample_with_well_coordinate}.CG.features.tsv"), emit: mtx, optional: true
 tag "$sample_with_well_coordinate"
 label 'pyProcess'
 script:
@@ -31,7 +32,7 @@ input:
 	path(tiles) // Non overlapping genome bins
 	tuple val(sample), val(sample_with_well_coordinate), path(allCells), path(metCH)
 output:
-	tuple val(sample_with_well_coordinate), path("${sample_with_well_coordinate}.CH.mtx.gz"), path("${sample_with_well_coordinate}.barcodes.tsv"), path("${sample_with_well_coordinate}.CH.features.tsv"), emit: mtx, optional: true
+	tuple val(sample_with_well_coordinate), path("${sample_with_well_coordinate}.CH.mtx"), path("${sample_with_well_coordinate}.barcodes.tsv"), path("${sample_with_well_coordinate}.CH.features.tsv"), emit: mtx, optional: true
 tag "$sample_with_well_coordinate"
 label 'pyProcess'
 script:
@@ -43,7 +44,7 @@ script:
 // Generate merged CG matrix with all barcodes
 process MergeMtxCG {
 input:
-	tuple val(sample), path(scoreMtx), path(barcodes), path(features)
+	tuple val(sample), path(mtx), path(barcodes), path(features), path(allCells)
 output:
 	tuple val(sample), path("${sample}.CG.score.mtx.gz")
 	tuple val(sample), path("${sample}.barcodes.tsv")
@@ -53,14 +54,14 @@ label 'pyProcess'
 publishDir file(params.outDir) / "samples" / "genome_bin_matrix", pattern: "*.{mtx.gz,tsv}", mode: 'copy'
 script:
 """
-	merge_mtx.py --sample ${sample} --barcodes ${barcodes} --features ${features[0]} --scoreMtx $scoreMtx
+	merge_mtx.py --sample ${sample} --barcodes ${barcodes} --features ${features[0]} --mtx $mtx --all_cells $allCells
 """
 }
 
 // Generate merged CH matrix with all barcodes
 process MergeMtxCH {
 input:
-	tuple val(sample), path(scoreMtx), path(barcodes), path(features)
+	tuple val(sample), path(mtx), path(barcodes), path(features), path(allCells)
 output:
 	tuple val(sample), path("${sample}.CH.mtx.gz")
 	tuple val(sample), path("${sample}.barcodes.tsv")
@@ -70,7 +71,7 @@ label 'pyProcess'
 publishDir file(params.outDir) / "samples" / "genome_bin_matrix", pattern: "*.{mtx.gz,tsv}", mode: 'copy'
 script:
 """
-	merge_mtx.py --sample ${sample} --barcodes ${barcodes} --features ${features[0]} --scoreMtx $scoreMtx
+	merge_mtx.py --sample ${sample} --barcodes ${barcodes} --features ${features[0]} --mtx $mtx --all_cells $allCells
 """
 }
 
@@ -79,7 +80,7 @@ input:
 	tuple val(sample), val(sample_with_well_coordinate), path(allCells), path(met)
 output:
 	tuple val(sample), path("{CG,CH}/*.allc.tsv.gz"), optional: true
-tag "$sample"
+tag "$sample_with_well_coordinate"
 label 'pyProcess'
 publishDir { outDir }, pattern: "{CG,CH}/*.allc.tsv.gz", mode: 'copy'
 script:
@@ -94,13 +95,28 @@ input:
 	tuple val(sample), val(sample_with_well_coordinate), path(allCells), path(met)
 output:
 	tuple val(sample), path("{CG,CH}/*.cov.gz"), optional: true
-tag "$sample"
+tag "$sample_with_well_coordinate"
 label 'pyProcess'
 publishDir { outDir }, pattern: "{CG,CH}/*.cov.gz", mode: 'copy'
 script:
     outDir = file(params.outDir) / "samples" / "methylation_coverage" / "cov" / sample.tokenize('.')[0]
 """
 	write_bismark.py --met_calls $met --all_cells $allCells --sample $sample_with_well_coordinate
+"""
+}
+
+process CreateAmethyst {
+input:
+	tuple val(sample), val(sample_with_well_coordinate), path(allCells), path(metCG), path(metCH)
+output:
+	tuple val(sample), path("*_cov.h5"), optional: true // test datasets may have no passing cells for one well
+tag "$sample_with_well_coordinate"
+label 'pyProcess'
+publishDir { outDir }, pattern: "*_cov.h5", mode: 'copy'
+script:
+    outDir = file(params.outDir) / "samples" / "methylation_coverage" / "amethyst" / sample.tokenize('.')[0]
+"""
+	write_amethyst.py --met_cg $metCG --met_ch $metCH --all_cells $allCells --sample $sample_with_well_coordinate
 """
 }
 
@@ -113,22 +129,23 @@ take:
     genome // Reference genome
 
 main:
+    metCG
+        .map {
+            // Retrieve sample name without well coordinate to join with allCells
+            def sample = it[0].tokenize('.')[0]
+            return tuple(sample, it[0], it[1])
+        }
+        .dump(tag: 'metCG')
+        .set { metCG }
+    allCells.cross(metCG)
+        .map {
+            // sample name, sample name.well coordinate, allCells, met calls
+            tuple(it[0][0], it[1][1], it[0][1], it[1][2])
+        }
+        .dump(tag: 'cgPass')
+        .set { cgPass }
+
     if (params.matrixGenerationCG) {
-        metCG
-            .map {
-                // Retrieve sample name without well coordinate to join with allCells
-                def sample = it[0].tokenize('.')[0]
-                return tuple(sample, it[0], it[1])
-            }
-            .dump(tag: 'metCG')
-            .set { metCG }
-        allCells.cross(metCG)
-            .map {
-                // sample name, sample name.well coordinate, allCells, met calls
-                tuple(it[0][0], it[1][1], it[0][1], it[1][2])
-            }
-            .dump(tag: 'cgPass')
-            .set { cgPass }
         MtxCG(genome.genomeTiles, cgPass)
         MtxCG.out.mtx
             .dump(tag: 'mtxCG')
@@ -142,27 +159,29 @@ main:
                 // flatten the list of files for each well coordinate
                 tuple sample, scoreMtx.flatten(), barcodes.flatten(), features.flatten()
             }
+            .join(allCells) // Output matrix with barcodes in same order as metadata file
             .dump(tag: 'mtxCGPerSample')
             .set { mtxCGPerSample }
         MergeMtxCG(mtxCGPerSample)
     }
     
+    metCH
+        .map {
+            // Retrieve sample name without well coordinate to join with allCells
+            def sample = it[0].tokenize('.')[0]
+            return tuple(sample, it[0], it[1])
+        }
+        .dump(tag: 'metCH')
+        .set { metCH }
+    allCells.cross(metCH)
+        .map {
+            // sample name, sample name.well coordinate, allCells, met calls
+            tuple(it[0][0], it[1][1], it[0][1], it[1][2])
+        }
+        .dump(tag: 'chPass')
+        .set { chPass }
+
     if (params.matrixGenerationCH) {
-        metCH
-            .map {
-                // Retrieve sample name without well coordinate to join with allCells
-                def sample = it[0].tokenize('.')[0]
-                return tuple(sample, it[0], it[1])
-            }
-            .dump(tag: 'metCH')
-            .set { metCH }
-        allCells.cross(metCH)
-            .map {
-                // sample name, sample name.well coordinate, allCells, met calls
-                tuple(it[0][0], it[1][1], it[0][1], it[1][2])
-            }
-            .dump(tag: 'chPass')
-            .set { chPass }
         MtxCH(genome.genomeTilesCh, chPass)
         MtxCH.out.mtx
             .dump(tag: 'mtxCH')
@@ -176,6 +195,7 @@ main:
                 // flatten the list of files for each well coordinate
                 tuple sample, scoreMtx.flatten(), barcodes.flatten(), features.flatten()
             }
+            .join(allCells) // Output matrix with barcodes in same order as metadata file
             .dump(tag: 'mtxCHPerSample')
             .set { mtxCHPerSample }
         MergeMtxCH(mtxCHPerSample)
@@ -186,4 +206,14 @@ main:
     if (params.covOut) {
         CreateBismark(cgPass.concat(chPass))
     }
+    
+    if (params.amethystOut) {
+        // join ch and cg channels for CreateAmethyst
+        cgPass
+            .join(chPass, by: [0, 1, 2], failOnDuplicate: true, failOnMismatch: true)
+            .dump(tag: 'metPass')
+            .set { metPass }
+        CreateAmethyst(metPass)
+    }
+    
 }

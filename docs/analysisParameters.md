@@ -41,13 +41,14 @@ System options (compute resource requirements, etc.) as well as all parameter de
 
 ### Optional and Advanced Parameters
 
-#### Optional intermediate file outputs 
+#### Optional file outputs 
 * `fastqOut` controls publishing fastq files from bcl-convert and bcParser barcode corrected sample demultiplexed fastqs to the output directory. If fastq files are not needed for custom analysis, disabling fastq output will save compute time and storage space. 
 * `trimOut` controls publishing post barcode demultiplexed trimmed fastq files to the output directory in the `trim` folder. 
 * Setting `bamOut` to false will suppress alignment (.bam file) output from bsbolt. Also setting `bamDedupOut` to false will suppress deduplicated bam file output from scDedup. If the user does not specifically need bam files for custom downstream analysis, disabling BAM output will save compute time and storage space.
 * `bamMergeOut` controls publishing of merged bam files to the output directory when starting the workflow from bam files, see [mergeBam](mergeBam.md).
 * `covOut` controls publishing methylation extraction files to the output `cov` directory with per-sample, per-context (CG/CH) files in bismark .cov format. These files contain columns for the `chr`, `pos`, `percent_methylated`, `methylated_count` and `unmethylated_count` columns.
 * `allcOut` will produce per-barcode methylation call files for analysis by the [ALLCools](https://lhqing.github.io/ALLCools/intro.html) package, with columns `chr`, `pos`, `strand`, `context`, `mc`, `cov`, `methylated` as described [here](https://lhqing.github.io/ALLCools/start/input_files.html#columns-in-allc-file).
+* `amethystOut` will create and publish HDF5 files to the output directory with per-cell per-context methylation calls for analysis with [Amethyst](https://github.com/lrylaarsdam/amethyst).
 
 #### Cell calling 
 The default cell thresholding algorithm used by the ScaleMethyl workflow imposes a one-dimensional threshold on the coordinate collapsed uniquely mapped reads per cell barcode.

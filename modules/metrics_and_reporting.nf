@@ -44,21 +44,21 @@ script:
 process GenerateSampleReport {
 input:
 	tuple val(sample), path(allCells), path(fragmentHist), path(dedupStats), path(mappingStats), path(trimmingStats), path(tssEnrich)
-    path(references)
-    val(libStructJsonFileName)
+        path(references)
+        val(libStructJsonFileName)
 	val(trimmingAndMapping)
 	val(reportingOnly)
 output:
 	tuple val(sample), path("${sample}/${sample}.report.html"), emit: report
 	tuple val(sample), path("${sample}/csv/${sample}.passingCellSummaryStats.csv"), emit: passingCellMethylStats
-    tuple val(sample), path("${sample}.allCells.csv")
-	tuple val(sample), path("${sample}.mergedTssEnrich.csv"), emit: mergedTssEnrich, optional: true
+        tuple val(sample), path("${sample}.allCells.csv")
+	tuple val(sample), path("${sample}.tss_enrich.csv"), emit: mergedTssEnrich, optional: true
 	tuple val(sample), path("${sample}/png")
 	tuple val(sample), path("${sample}/csv")
 publishDir { outDir }, pattern: "${sample}/*.html", mode:'copy'
 publishDir { outDir }, pattern: "${sample}/csv", mode:'copy'
 publishDir { outDir }, pattern: "${sample}/png", mode:'copy'
-publishDir file(params.outDir) / "merged_stats_for_reporting_only", pattern: "${sample}.mergedTssEnrich.csv", mode:'copy'
+publishDir file(params.outDir) / "metrics_for_reporting", pattern: "${sample}.tss_enrich.csv", mode:'copy'
 publishDir file(params.outDir) / "samples", pattern: "${sample}.allCells.csv", mode:'copy'
 tag "$sample"
 label 'pyProcess'
@@ -83,7 +83,7 @@ process CombinedSampleReport {
 input:
 	tuple val(libName), path(allCells), path(passingCellStats), path("demuxMetrics.json")
 	path(references)
-    val(libStructJsonFileName)
+        val(libStructJsonFileName)
 output:
 	tuple val(libName), path("${libName}/library.${libName}.report.html"), emit: combinedReport
 	tuple val(libName), path("${libName}/library.${libName}.combinedPassingCellStats.csv"), emit: combinedPassingStats

@@ -158,7 +158,7 @@ publishDir { outDir }, pattern: "*.json"
 tag "$sample"
 script:
     tthreads = Math.max(task.cpus - 2, 1)
-    outDir = file(params.outDir) / "fastq" / sample
+    outDir = file(params.outDir) / "fastq" / "trim" / sample
 """
 	cutadapt -j $tthreads -a CTATCTCTTATA -A AGATCGGAAGAGC -U -10 -m20 -o ${sample}_R1.fq.gz -p ${sample}_R2.fq.gz <(zcat cat ${pairs1}) <(zcat ${pairs2}) --json ${sample}.trim_stats.json | tee ${sample}.trim_log
 """
@@ -261,7 +261,7 @@ main:
         // If samples.csv has a library name which does not have corresponding fastq files
         // then 3rd element of checkFastq will be null
         if (it[3] == null) {
-            ParamLogger.throwError("Library ${it[0]} does not have matching fastq files. None of the provided fastq filenames start with ${it[0]}")
+            ParamLogger.throwError("Library ${it[0]} does not have matching fastq files. None of the provided fastq filenames start with \"${it[0]}_\"")
         }
         // Check that each library has index1, read1 and read2 fastq files
         if (it[3].any {fq -> fq.getName().contains("_R1_") or fq.getName().contains("_R1.")} == false) {

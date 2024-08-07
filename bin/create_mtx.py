@@ -3,10 +3,10 @@
 Create matrix of features defined by a BED file and met calls from parquet files
 """
 import duckdb
-import gzip
 import numpy as np
+import pandas as pd
 from scipy.io import mmwrite
-from scipy.sparse import csc_array
+from scipy.sparse import coo_array
 import argparse
 from pathlib import Path
 from reporting.reporting import Utils
@@ -19,7 +19,7 @@ def score_mtx(met_rate:np.ndarray):
     Args:
         met_rate: Methylation rate matrix
     """
-    cell_met_rate = np.mean(met_rate, axis=0)
+    cell_met_rate = np.nanmean(met_rate, axis=0)
     diff = met_rate - cell_met_rate
     score = np.where(diff > 0, diff/(1 - cell_met_rate), diff/cell_met_rate)
     return score
@@ -27,12 +27,12 @@ def score_mtx(met_rate:np.ndarray):
 
 def create_mtx(met_calls:Path, bedfile:Path, passing_bc:list, sample:str, context:str):
     """
-    Creates matrices of methylation counts for regions defined by a BED file.
+    Creates matrices of methylation rates for regions defined by a BED file.
 
     Using the methylation calls from a Parquet file and a BED file binning regions
-    of the genome, create a matrix of methylation counts (met.mtx) for each region
-    and cell barcode, also create a matrix of coverage (cov.mtx) for each region
-    and cell barcode. Matrices are written in dense Matrix Market array format.
+    of the genome, create a score matrix for CG context methylation and a percent
+    methylated matrix for CH context methylation for each region and cell barcode.
+    Matrices are written in sparse Matrix Market array format.
 
     Args:
         met_calls: Path to the Parquet file containing methylation calls.
@@ -44,7 +44,11 @@ def create_mtx(met_calls:Path, bedfile:Path, passing_bc:list, sample:str, contex
 
     # read bed file
     bed = duckdb.sql(f"""
-    SELECT column0 AS chr, column1 AS start, column2 AS stop, chr || '_' || start || '_' || stop as region
+    SELECT
+        column0 AS chr,
+        column1 AS start,
+        column2 AS stop,
+        chr || '_' || start || '_' || stop as region
     FROM read_csv(
         '{bedfile}',
         header = false,
@@ -52,83 +56,62 @@ def create_mtx(met_calls:Path, bedfile:Path, passing_bc:list, sample:str, contex
         );
     """)
     
-    num_regions = duckdb.sql("SELECT COUNT(*) FROM bed").fetchall()[0][0]
-    met = np.zeros((num_regions, len(passing_bc)), dtype=int)
-    cov = np.zeros((num_regions, len(passing_bc)), dtype=int)
+    calls = duckdb.sql(f"""
+    SELECT barcode, chr, pos, methylated, unmethylated
+    FROM '{met_calls}';
+    """)
     
-    for idx, bc in enumerate(passing_bc):
-        # get methylation calls for current barcode
-        calls = duckdb.sql(f"""
-        SELECT chr, pos, met
-        FROM read_parquet('{met_calls}')
-        WHERE barcode = '{bc}';
-        """)
-
-        # get non-zero elements of binned matrix
-        cov_bins = duckdb.sql(f"""
-        SELECT bed.region, COUNT(*) as count
-        FROM calls
-        INNER JOIN bed
-        USING (chr)
-        WHERE calls.pos >= bed.start AND calls.pos < bed.stop
-        GROUP BY region
-        """)
-
-        # get methylated sums in binned matrix
-        met_bins = duckdb.sql(f"""
-        SELECT bed.region, COUNT(*) as count
-        FROM calls
-        INNER JOIN bed
-        USING (chr)
-        WHERE (calls.pos >= bed.start AND calls.pos < bed.stop) AND (calls.met SIMILAR TO '[XYZ]')
-        GROUP BY region
-        """)
-
-        # get all elements of binned matrix as a numpy array
-        cov_cell = duckdb.sql(f"""
-        SELECT COALESCE(cov_bins.count, 0) as count
-        FROM bed
-        LEFT JOIN cov_bins
-        USING (region)
-        ORDER BY chr, start;
-        """).fetchnumpy()['count']
-        
-        # update coverage matrix
-        cov[:, idx] = cov_cell
-
-        # get all elements of binned matrix as a numpy array
-        met_cell = duckdb.sql(f"""
-        SELECT COALESCE(met_bins.count, 0) as count
-        FROM bed
-        LEFT JOIN met_bins
-        USING (region)
-        ORDER BY chr, start;
-        """).fetchnumpy()['count']
-        
-        # update coverage matrix
-        met[:, idx] = met_cell
+    # get non-sparse entries of the matrix
+    perc_methylated_df = duckdb.sql(f"""
+    SELECT
+        barcode,
+        region,
+        SUM(methylated) / (SUM(methylated) + SUM(unmethylated)) as perc_methylated
+    FROM calls m, bed b
+    WHERE m.pos >= b.start
+    AND m.pos < b.stop
+    AND m.chr = b.chr
+    GROUP BY barcode, region
+    """).df()
     
-    met_rate = np.where(cov != 0, met / cov, 0)
+    # filter out barcodes that are not passing
+    # these are typically less than 1% of positions
+    perc_methylated_df = perc_methylated_df[perc_methylated_df['barcode'].isin(passing_bc)]
+    
+    # regions will be rows in matrix
+    regions = duckdb.sql(f"""
+    SELECT region
+    FROM bed;
+    """).df()['region']
+    region_mapping = pd.Series(regions.index, index=regions)
+    row = np.array(perc_methylated_df['region'].map(region_mapping))
+
+    # passing barcodes will be columns in matrix
+    col = np.array(perc_methylated_df['barcode'].map({bc: idx for idx, bc in enumerate(passing_bc)}))
+    data = perc_methylated_df['perc_methylated'].to_numpy()
+    
+    mtx = coo_array((data, (row, col)), shape=(len(regions), len(passing_bc))).todense()
+    mask = np.ones_like(mtx, dtype=bool)
+    mask[row, col] = False
+    # set missing data to NaN
+    mtx[mask] = np.nan
+
     if context == "CG":
-        with gzip.open(f"{sample}.{context}.score.mtx.gz", 'wb') as f:
-            mmwrite(f, csc_array(score_mtx(met_rate)))
+        with open(f"{sample}.{context}.score.mtx", 'wb') as f:
+            # set missing data to 0, representing average cell methylation rate
+            mmwrite(f, coo_array(np.nan_to_num(score_mtx(mtx))), precision=3)
     else:
         # Use percent methylated for CH context
-        with gzip.open(f"{sample}.{context}.mtx.gz", 'wb') as f:
-            mmwrite(f, csc_array(met_rate))
+        with open(f"{sample}.{context}.mtx", 'wb') as f:
+            # set missing data to 0
+            mmwrite(f, coo_array(np.nan_to_num(mtx)), precision=3)
 
     # Write column and row names
     with open(f"{sample}.barcodes.tsv", 'w') as f:
         for bc in passing_bc:
             f.write(f"{bc}\n")
 
-    duckdb.sql(f"""
-    COPY (
-        SELECT region
-        FROM bed
-        ORDER BY chr, start
-    ) TO '{sample}.{context}.features.tsv' (HEADER false, DELIMITER '\t');
-    """)
+    regions.to_csv(f"{sample}.{context}.features.tsv", sep='\t', index=False, header=False)
 
 def main():
     parser = argparse.ArgumentParser("Create a matrix of met calls")

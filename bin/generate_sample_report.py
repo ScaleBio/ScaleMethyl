@@ -78,7 +78,7 @@ def main():
             if len(tss_enrich_dfs) > 0:
                 concat_tss_enrich_df = pd.concat(tss_enrich_dfs, ignore_index=True, axis=0)
                 concat_tss_enrich_df = concat_tss_enrich_df.drop(columns=["tss_counts", "background_counts"])
-                concat_tss_enrich_df.to_csv(f"{args.sample_name}.mergedtss_enrich.csv", index=False)
+                concat_tss_enrich_df.to_csv(f"{args.sample_name}.tss_enrich.csv", index=False)
     
     if not concat_tss_enrich_df.empty:
         all_cells = all_cells.merge(concat_tss_enrich_df, on=["cell_id"], how="left")
@@ -103,7 +103,8 @@ def main():
     datapane_obj.build_summary_stats(mapping_stats, trimming_stats)
     dp_list_summary.append(datapane_obj.build_knee_plot())
     dp_list_summary.append(datapane_obj.create_total_complexity_plot())
-    dp_list_summary.append(datapane_obj.construct_passing_cell_stats())
+    if not met_passing.empty:
+        dp_list_summary.append(datapane_obj.construct_passing_cell_stats())
     dp_list_summary.append(datapane_obj.build_summary_stats_table(mapping_stats, trimming_stats))
     dp_page.append(dp.Page(dp.Group(blocks=dp_list_summary, columns=2), title="Summary"))
 

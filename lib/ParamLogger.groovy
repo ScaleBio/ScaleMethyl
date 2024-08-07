@@ -31,7 +31,7 @@ class ParamLogger {
                                   'matrix-generation-CH', 'matrixGenerationCG', 'matrix-generation-CG', 'bam1Dir', 'bam2Dir',
                                   'bamMergeOut', 'bamRgHeader', 'trimFastq', 'adapters', 'fastqc', 'topCellPercentile',
                                   'minCellRatio', 'minUniqCount', 'minUniqTotal', 'maxUniqTotal', 'maxMemory', 'maxCpus',
-                                  'maxTime', 'dedupKey', 'minMapq', 'help', 'allcOut', 'covOut', 'chReadsThreshold' ]
+                                  'maxTime', 'dedupKey', 'minMapq', 'help', 'allcOut', 'covOut', 'chReadsThreshold', 'amethystOut' ]
         def masterListOfParams = allowedParameters
         allowedParameters.each { str ->
             masterListOfParams += camelToKebab(str)}

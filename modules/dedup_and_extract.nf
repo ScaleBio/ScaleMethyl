@@ -41,8 +41,7 @@ output:
 tag "$sample"
 label 'pyProcess'
 """
-	samtools view $bam | split_bam -v sample=$sample -v thresh=${params.chReadsThreshold / 100}
-	met_extract.py
+	met_extract.py $bam --sample $sample --threshold ${params.chReadsThreshold / 100} --subprocesses ${task.cpus}
 """
 }
 

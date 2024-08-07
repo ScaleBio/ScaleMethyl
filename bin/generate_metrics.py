@@ -51,7 +51,7 @@ def construct_all_cells(max_uniq: int, max_uniq_total: int, sample_name: str, mi
     Construct cell stats for this sample from the cell_stats.tsv file
     Also determine threshold for passing cells based on logic from nf-rna
     """
-    met_df = pd.read_csv(cell_info, names=["cell_id", "c_cov", "cg_cov", "cg_met", "ch_cov", "ch_met", "ch_high_reads"])
+    met_df = pd.read_csv(cell_info, names=["cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct", "ch_high_reads"])
     met_df['sample'] = sample_name
     all_cells = pd.read_csv(cell_stats)
     if len(all_cells) == 0:

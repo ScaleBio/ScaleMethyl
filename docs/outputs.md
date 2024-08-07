@@ -27,6 +27,7 @@ For detailed information about the library and sample level QC reports see [qcRe
 | `matrix` | `<sample>.{CG,CH}.{score}.mtx.gz` | CG and CH binned genome-wide matrix files in Matrix Market format. Rows are the genomic bins, and columns are the cellular barcode, see `features.tsv` and `barcodes.tsv` respectively. Custom binned bed files for the CG and CH matrix generation can be passed using the `genomeTiles` and `genomeTilesCh` options in the [genomes.json](genomes.md); only included with `--matrixGenerationCG true` or `--matrixGenerationCH true`
 | `cov` | `<barcode>.{CG,CH}.cov.gz` | Per-cell methylation calls in bismark .cov format
 | `allc` | `{CG,CH}/<barcode>.allc.tsv.gz` | Per-cell methylation calls in bismark allCools .allc format; only included with `--allcOut` 
+| `amethyst` | `<sample>.<tn5>_cov.h5` | Per-cell methylation calls in HDF5 format for analysis with the [Amethyst](https://github.com/lrylaarsdam/amethyst) R package.
 
 ### Matrix Detailed Descriptions 
 
@@ -34,7 +35,7 @@ For detailed information about the library and sample level QC reports see [qcRe
 
 | File | Description |
 |------|-------------|
-| `<sample>.CG.score.mtx.gz` | `diff = (methylation rate - cellGlobalMet)`; if `diff` > 0, `score = diff/(1 - cellGlobalMet)`; else `score = diff/cellGlobalMet`. The score gives a scale of `-1:1` where -1 reflects missing values instead of also being assigned to zero, which in some cases can give cleaner clustering. |
+| `<sample>.CG.score.mtx.gz` | `diff = (methylation rate - cellGlobalMet)`; if `diff` > 0, `score = diff/(1 - cellGlobalMet)`; else `score = diff/cellGlobalMet`. The score gives a scale of `-1:1` where -1 reflects no methylation for a covered region while non-covered regions are assigned to zero, which in some cases can give cleaner clustering. |
 | `<sample>.CH.mtx.gz` | methylation rate (methylated / total covered CH) scale of `0:1` | 
 
 These matrices can be loaded into Seurat, ScanPy or similar tools for clustering, downstream analysis, and visualization.

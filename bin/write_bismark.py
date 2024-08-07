@@ -6,8 +6,28 @@ https://github.com/anders-biostat/MethSCAn/blob/master/docs/tutorial.md#what-you
 import duckdb
 import argparse
 import subprocess
+import threading
+import os
 from pathlib import Path
 from reporting.reporting import Utils
+
+def write_to_pipe(met_calls:Path, bc:str, context:str):
+    """
+    Send duckdb query to named pipe
+    """
+    duckdb.query(f"""
+        COPY(
+            SELECT
+                chr,
+                pos,
+                ROUND(methylated / (methylated + unmethylated), 2) as perc_methylated,
+                methylated,
+                unmethylated
+            FROM read_parquet('{met_calls}')
+            WHERE barcode = '{bc}'
+        ) TO './duckdb.pipe' (FORMAT CSV, HEADER false, DELIMITER '\t');
+    """)
+    
 
 def write_bismark(met_calls:Path, barcodes:list, context:str):
     """
@@ -18,39 +38,18 @@ def write_bismark(met_calls:Path, barcodes:list, context:str):
         barcodes: Passing barcodes for this well coordinate.
         context: CG or CH
     """
-    # get chromosomes present in methylation extraction calls
-    chrs = sorted([row[0] for row in duckdb.sql(f"SELECT DISTINCT(chr) FROM read_parquet('{met_calls}');").fetchall()])
     outdir = Path.cwd() / context
     outdir.mkdir(exist_ok=True)
+    if not Path("duckdb.pipe").exists():
+        os.mkfifo("duckdb.pipe")
     for bc in barcodes:
-        for chr in chrs:
-            duckdb.sql(f"""
-            COPY (
-                SELECT
-                    any_value(chr),
-                    pos,
-                    ROUND(SUM(CASE WHEN met SIMILAR TO '[XYZ]' THEN 1 ELSE 0 END) / COUNT(met), 2) AS met_perc,
-                    SUM(CASE WHEN met SIMILAR TO '[XYZ]' THEN 1 ELSE 0 END) as met_count,
-                    SUM(CASE WHEN met SIMILAR TO '[xyz]' THEN 1 ELSE 0 END) as unmet_count
-                FROM
-                    read_parquet('{met_calls}')
-                WHERE
-                    barcode = '{bc}' AND chr = '{chr}'
-                GROUP BY
-                    pos
-                ORDER BY
-                    pos
-            ) TO '{outdir / f"{bc}.{chr}.{context}.cov"}' (HEADER false, DELIMITER '\t');
-            """)
-        # concatenate all chromosome files into one file
-        chr_files = sorted([file for file in outdir.glob(f"{bc}.*.{context}.cov")])
-        cat_process = subprocess.Popen(["cat"] + chr_files, stdout=subprocess.PIPE)
+        # send query to thread which will write to named pipe (FIFO) that is input to bgzip
+        query_thread = threading.Thread(target=write_to_pipe, args=(met_calls, bc, context))
+        query_thread.start()
         with open(outdir / f"{bc}.{context}.cov.gz", "wb") as f:
-            gzip_process = subprocess.Popen(["bgzip", "-c"], stdin=cat_process.stdout, stdout=f)
-            gzip_process.wait()
-        # delete the chromosome files
-        for file in chr_files:
-            file.unlink()
+            gzip_process = subprocess.Popen(["bgzip", "-c", "./duckdb.pipe"], stdout=f)
+            gzip_process.communicate()
+    os.unlink("duckdb.pipe")
 
 
 def main():

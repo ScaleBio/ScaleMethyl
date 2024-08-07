@@ -134,7 +134,7 @@ workflow {
 			trimmingAndMappingStats = MergeStats.out.trimmingAndMappingStats
 		}
 		else {
-			reportStats = readsFrags.join(sampleExtractStats).join(dedupStats)
+			reportStats = DEDUP_AND_EXTRACT.out.readsFrags.join(DEDUP_AND_EXTRACT.out.sampleExtractStats).join(DEDUP_AND_EXTRACT.out.dedupStats)
 			// Empty lists indicate absence of trimming and mapping report/log files
 			reportStats = reportStats.map {
 				tuple(it[0], it[1], it[2], it[3], it[4], [], [])
@@ -178,7 +178,7 @@ workflow {
 		)}
 		tssEnrich = samples.map{tuple(
 			it.sample,
-			file("${params.resultDir}/metrics_for_reporting/${it.sample}.mergedTssEnrich.csv")
+			file("${params.resultDir}/metrics_for_reporting/${it.sample}.tss_enrich.csv")
 		)}
 		// For the case where original analysis was run with runTssEnrich = false
 		tssEnrich = tssEnrich.map {

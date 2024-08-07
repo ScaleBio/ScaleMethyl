@@ -6,8 +6,30 @@ https://lhqing.github.io/ALLCools/start/input_files.html#allc-file
 import duckdb
 import argparse
 import subprocess
+import threading
+import os
 from pathlib import Path
 from reporting.reporting import Utils
+
+def write_to_pipe(met_calls:Path, bc:str, context:str):
+    """
+    Send duckdb query to named pipe
+    """
+    duckdb.query(f"""
+        COPY(
+            SELECT
+                chr,
+                pos,
+                strand,
+                '{context}' as context,
+                methylated,
+                (methylated + unmethylated) as cov,
+                1 as col7
+            FROM read_parquet('{met_calls}')
+            WHERE barcode = '{bc}'
+        ) TO './duckdb.pipe' (FORMAT CSV, HEADER false, DELIMITER '\t');
+    """)
+    
 
 def write_allc(met_calls:Path, barcodes:list):
     """
@@ -17,43 +39,19 @@ def write_allc(met_calls:Path, barcodes:list):
         met_calls: Parquet file containing methylation calls.
         barcodes: Passing barcodes for this well coordinate.
     """
-    # get chromosomes present in methylation extraction calls
-    chrs = sorted([row[0] for row in duckdb.sql(f"SELECT DISTINCT(chr) FROM read_parquet('{met_calls}');").fetchall()])
-
-    outdir = Path.cwd() / "CG" if ".met_CG" in met_calls.suffixes else Path.cwd() / "CH"
+    context = "CG" if ".met_CG" in met_calls.suffixes else "CH"
+    outdir = Path.cwd() / context
     outdir.mkdir(exist_ok=True)
+    if not Path("duckdb.pipe").exists():
+        os.mkfifo("duckdb.pipe")
     for bc in barcodes:
-        # batch by chromosome to reduce memory usage
-        for chr in chrs:
-            duckdb.sql(f"""
-            COPY (
-                SELECT
-                    any_value(chr),
-                    pos,
-                    any_value(strand),
-                    CASE WHEN any_value(met) SIMILAR TO '[xX]' THEN 'CG' WHEN any_value(met) SIMILAR TO '[yY]' THEN 'CHG' ELSE 'CHH' END as context,
-                    SUM(CASE WHEN met SIMILAR TO '[XYZ]' THEN 1 ELSE 0 END) AS met,
-                    COUNT(met) as cov,
-                    1 as col7
-                FROM
-                    read_parquet('{met_calls}')
-                WHERE
-                    barcode = '{bc}' AND chr = '{chr}'
-                GROUP BY
-                    pos
-                ORDER BY
-                    pos
-            ) TO '{outdir / f"{bc}.{chr}.allc.tsv"}' (HEADER false, DELIMITER '\t');
-            """)
-        # concatenate all chromosome files into one file
-        chr_files = sorted([file for file in outdir.glob(f"{bc}.*.allc.tsv")])
-        cat_process = subprocess.Popen(["cat"] + chr_files, stdout=subprocess.PIPE)
+        # send query to thread which will write to named pipe (FIFO) that is input to bgzip
+        query_thread = threading.Thread(target=write_to_pipe, args=(met_calls, bc, context))
+        query_thread.start()
         with open(outdir / f"{bc}.allc.tsv.gz", "wb") as f:
-            gzip_process = subprocess.Popen(["bgzip", "-c"], stdin=cat_process.stdout, stdout=f)
-            gzip_process.wait()
-        # delete the chromosome files
-        for file in chr_files:
-            file.unlink()
+            gzip_process = subprocess.Popen(["bgzip", "-c", "./duckdb.pipe"], stdout=f)
+            gzip_process.communicate()
+    os.unlink("duckdb.pipe")
     
     
 def main():

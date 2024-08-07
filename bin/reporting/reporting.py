@@ -204,6 +204,9 @@ class DatapaneUtils:
         if (numericCols is not None):
             styler.format(DatapaneUtils.reformatIfInt, subset=numericCols)
 
+        # Format NA values
+        styler.format(na_rep='NA')
+
         styler.hide(axis='index')
 
         if hideColumnHeaders:
@@ -402,10 +405,12 @@ class BuildDatapane:
                 "Metric": ["total_reads",
                            "percent_passing_trimming",
                            "percent_passing_mapping",
-                           "reads_per_passing_cell"],
+                           "reads_per_passing_cell",
+                           "saturation"],
                 "Value": [int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]),
                           trimming_stats[trimming_stats["Metric"] == "percent_passing"]["Value"].to_list()[0],
                           (mapping_stats[mapping_stats["Metric"] == "mapped_reads"]["Value"].to_list()[0]/trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0])*100,
+                          np.nan,
                           np.nan]
             }, dtype="object")
         else:
@@ -444,8 +449,8 @@ class BuildDatapane:
                          int(self.met_df['unique_reads'].median()),
                          int(self.met_df['cg_cov'].median()),
                          int(self.met_df['ch_cov'].median()),
-                         self.met_df['cg_met'].median(),
-                         self.met_df['ch_met'].median(),
+                         self.met_df['mcg_pct'].median(),
+                         self.met_df['mch_pct'].median(),
                          self.sample
                         ]
         if 'tss_enrich' in self.met_df.columns:
@@ -482,7 +487,7 @@ class BuildDatapane:
         return dp.Plot(fig)
 
     def build_cg_cell_methyl_percent_box(self) -> dp.Plot:
-        tmp_met_df = self.met_df.rename(columns={"cg_met": ""})
+        tmp_met_df = self.met_df.rename(columns={"mcg_pct": ""})
         IN = tmp_met_df[["sample", ""]].melt(id_vars=["sample"], var_name="", value_name="value")
         fig = px.box(IN, x='', y='value', color='sample', points='suspectedoutliers', color_discrete_map=self.color_map)
         update_fig_layout(fig, 'CG Cell Methylation', '', 'Cell Methylation %', False, 800, 500, self.is_library_report, 'category')
@@ -491,7 +496,7 @@ class BuildDatapane:
         return dp.Plot(fig)
 
     def build_ch_cell_methyl_percent_box(self) -> dp.Plot:
-        tmp_met_df = self.met_df.rename(columns={"ch_met": ""})
+        tmp_met_df = self.met_df.rename(columns={"mch_pct": ""})
         IN = tmp_met_df[["sample", ""]].melt(id_vars=["sample"], var_name="", value_name="value")
         fig = px.box(IN, x='', y='value', color='sample', points='suspectedoutliers', color_discrete_map=self.color_map)
         update_fig_layout(fig, 'CH Cell Methylation', '', 'Cell Methylation %', False, 800, 500, self.is_library_report, 'category')
@@ -520,8 +525,8 @@ class BuildDatapane:
     def build_mito_tss_ch_table(self) -> dp.Table:
         mito_tss_dist_df = pd.DataFrame({
             'Cells with % of Mito Reads > 1': [len(self.all_cells[self.all_cells["mito_reads"] > 1])],
-            'Cells with TSS Enrichment > 3': [len(self.all_cells[self.all_cells["tss_enrich"] > 3])],
-            'Cells with CH Methylation % > 1': [len(self.met_df[self.met_df['ch_met'] > 1])]
+            'Cells with TSS Enrichment > 3': [len(self.all_cells[self.all_cells["tss_enrich"] > 3]) if 'tss_enrich' in self.all_cells.columns else pd.NA],
+            'Cells with CH Methylation % > 1': [len(self.met_df[self.met_df['mch_pct'] > 1])]
         })
         return (DatapaneUtils.createTableIgnoreWarning(mito_tss_dist_df.style.pipe(
             DatapaneUtils.styleTable, title="Mitochondrial Reads and TSS Enrichment Distribution", hideColumnHeaders=False, boldColumn=None)))
