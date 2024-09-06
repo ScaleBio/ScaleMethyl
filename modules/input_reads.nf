@@ -51,7 +51,7 @@ input:
 output: 
 	path("samplesheet.csv")
 publishDir file(params.outDir) / "fastq", mode: 'copy'
-label 'pyProcess'
+label 'process_single'
 script:
 	opts = ""
 	libJson = "$libStructDir/$libStructName"
@@ -91,10 +91,11 @@ input:
 output:
 	path("fastqc/*.html")
 publishDir file(params.outDir) / "fastq", mode: 'copy'
+label 'process_single'
 script:
 """
 	mkdir -p fastqc
-	fastqc --adapters ${adapters} -o fastqc ${fqFiles.join(" ")} --threads ${task.cpus} -f fastq --extract
+	fastqc --adapters $adapters -o fastqc $fqFiles --threads ${task.cpus} -f fastq
 """
 }
 
@@ -114,6 +115,7 @@ output:
 publishDir file(params.outDir) / "barcodes", pattern: "$outDir/*{txt,tsv,json}", mode: 'copy'
 publishDir file(params.outDir) / "barcodes", pattern: "$outDir/*gz", enabled: params.fastqOut
 tag "$libName" 
+label 'process_medium'
 script: 
 	if (params.splitFastq) {
 		outDir = "${libName}.${fastqNum}.demux" 
@@ -136,7 +138,7 @@ output:
     tuple val(libName), path("${libName}.metrics.json"), emit: barcodeMetrics
 publishDir file(params.outDir) / "barcodes", mode:'copy'
 tag "$libName"
-label 'pyProcess'
+label 'process_single'
 script:
 	libStruct = "$libStructDir/$libStructJson" 
     """

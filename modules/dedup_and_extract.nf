@@ -19,6 +19,7 @@ output:
 	tuple val(sample), env(TOTAL_READS), emit: totalReads
 publishDir { outDir }, pattern: "${sample}.dedup.bam", enabled: params.bamDedupOut
 tag "$sample"
+label 'process_medium'
 script:
     outDir = file(params.outDir) / "alignments" / "dedup" / sample
 	sthreads = task.cpus
@@ -39,9 +40,10 @@ output:
 	tuple val(sample), path("${sample}.met_CH.parquet"), emit: metCH
 	tuple val(sample), path("${sample}.cellInfo.txt"), emit: report
 tag "$sample"
-label 'pyProcess'
+script:
+    nprocs = Math.max(task.cpus - 1, 1)
 """
-	met_extract.py $bam --sample $sample --threshold ${params.chReadsThreshold / 100} --subprocesses ${task.cpus}
+	met_extract.py $bam --sample $sample --threshold ${params.chReadsThreshold / 100} --subprocesses $nprocs
 """
 }
 

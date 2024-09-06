@@ -47,7 +47,7 @@ input:
 output: 
 	path("samples.csv")
 publishDir file(params.outDir), mode: 'copy'
-label 'pyProcess'
+label 'process_single'
 cache 'deep'
 script:
 	opts=""
@@ -70,7 +70,7 @@ output:
 	tuple val(sample), path("metrics_for_reporting/${sample}.dedup_stats.csv"), emit: dedupStats
 	tuple val(sample), path("metrics_for_reporting/${sample}.mapping_stats.csv"), path("metrics_for_reporting/${sample}.trimming_stats.csv"), emit: trimmingAndMappingStats, optional: true
 tag "$sample"
-label 'pyProcess'
+label 'process_single'
 publishDir file(params.outDir), mode:'copy'
 script:
 """

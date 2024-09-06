@@ -31,8 +31,8 @@ def write_amethyst(met_cg:Path, met_ch:Path, barcodes:list, sample:str):
                         chr,
                         pos,
                         ROUND(methylated / (methylated + unmethylated), 2) as pct,
-                        methylated as t,
-                        unmethylated as c
+                        unmethylated as t,
+                        methylated as c
                     FROM read_parquet('{file}')
                     WHERE barcode = '{bc}';
                 """).fetchnumpy()

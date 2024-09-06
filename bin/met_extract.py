@@ -121,21 +121,50 @@ def met_extract(bam:Path, sample:str, threshold:float, nproc:int):
     with Pool(nproc) as p:
         chr_high_ch_reads = p.starmap(write_chr_parquet, zip(repeat(bam), chrs, repeat(sample), repeat(threshold)))
     
-    # create CG context met calls parquet file
+    # create CG and CH context met calls parquet file
+    # by combining all chromosome-specific parquet files
+    # NB: Switched from polars.scan_parquet to duckdb to avoid issue with some records being re-ordered
     chr_pqs = Path(".").glob(f"{sample}.RNAME_*.parquet")
-    pl.scan_parquet(
-        sorted([file for file in chr_pqs])
-    ).filter(
-        pl.col("context") == "CG"
-    ).select("barcode", "chr", "pos", "strand", "methylated", "unmethylated").sink_parquet(f"{sample}.met_CG.parquet")
+    # sort by chromosome name
+    chr_pqs = sorted([file.as_posix() for file in chr_pqs])
 
-    # create CH context met calls parquet file
-    chr_pqs = Path(".").glob(f"{sample}.RNAME_*.parquet")
-    pl.scan_parquet(
-        sorted([file for file in chr_pqs])
-    ).filter(
-        pl.col("context") == "CH"
-    ).select("barcode", "chr", "pos", "strand", "methylated", "unmethylated").sink_parquet(f"{sample}.met_CH.parquet")
+    # CG context
+    duckdb.sql(f"""
+    COPY (
+        SELECT
+            barcode,
+            chr,
+            pos,
+            strand,
+            methylated,
+            unmethylated
+        FROM
+            read_parquet({chr_pqs})
+        WHERE
+            context = 'CG'
+               
+    )
+    TO '{f"{sample}.met_CG.parquet"}' (COMPRESSION ZSTD);
+    """)
+
+    # CH context
+    duckdb.sql(f"""
+    COPY (
+        SELECT
+            barcode,
+            chr,
+            pos,
+            strand,
+            methylated,
+            unmethylated
+        FROM
+            read_parquet({chr_pqs})
+        WHERE
+            context = 'CH'
+               
+    )
+    TO '{f"{sample}.met_CH.parquet"}' (COMPRESSION ZSTD);
+    """)
 
     # create cell info summary stats
     cg_info = duckdb.sql(f"""

@@ -19,7 +19,7 @@ input:
 output:
 	tuple val(sample_with_well_coordinate), path("${sample_with_well_coordinate}.CG.score.mtx"), path("${sample_with_well_coordinate}.barcodes.tsv"), path("${sample_with_well_coordinate}.CG.features.tsv"), emit: mtx, optional: true
 tag "$sample_with_well_coordinate"
-label 'pyProcess'
+label 'process_single'
 script:
 """
 	create_mtx.py --bedfile $tiles --met_calls $metCG --all_cells $allCells --sample $sample_with_well_coordinate
@@ -34,7 +34,7 @@ input:
 output:
 	tuple val(sample_with_well_coordinate), path("${sample_with_well_coordinate}.CH.mtx"), path("${sample_with_well_coordinate}.barcodes.tsv"), path("${sample_with_well_coordinate}.CH.features.tsv"), emit: mtx, optional: true
 tag "$sample_with_well_coordinate"
-label 'pyProcess'
+label 'process_medium'
 script:
 """
 	create_mtx.py --bedfile $tiles --met_calls $metCH --all_cells $allCells --sample $sample_with_well_coordinate --CH
@@ -50,8 +50,8 @@ output:
 	tuple val(sample), path("${sample}.barcodes.tsv")
 	tuple val(sample), path("${sample}.CG.features.tsv")
 tag "$sample"
-label 'pyProcess'
 publishDir file(params.outDir) / "samples" / "genome_bin_matrix", pattern: "*.{mtx.gz,tsv}", mode: 'copy'
+label 'process_medium_memory'
 script:
 """
 	merge_mtx.py --sample ${sample} --barcodes ${barcodes} --features ${features[0]} --mtx $mtx --all_cells $allCells
@@ -67,8 +67,8 @@ output:
 	tuple val(sample), path("${sample}.barcodes.tsv")
 	tuple val(sample), path("${sample}.CH.features.tsv")
 tag "$sample"
-label 'pyProcess'
 publishDir file(params.outDir) / "samples" / "genome_bin_matrix", pattern: "*.{mtx.gz,tsv}", mode: 'copy'
+label 'process_medium_memory'
 script:
 """
 	merge_mtx.py --sample ${sample} --barcodes ${barcodes} --features ${features[0]} --mtx $mtx --all_cells $allCells
@@ -81,8 +81,8 @@ input:
 output:
 	tuple val(sample), path("{CG,CH}/*.allc.tsv.gz"), optional: true
 tag "$sample_with_well_coordinate"
-label 'pyProcess'
 publishDir { outDir }, pattern: "{CG,CH}/*.allc.tsv.gz", mode: 'copy'
+label 'process_medium_memory'
 script:
     outDir = file(params.outDir) / "samples" / "methylation_coverage" / "allc" / sample.tokenize('.')[0]
 """
@@ -96,8 +96,8 @@ input:
 output:
 	tuple val(sample), path("{CG,CH}/*.cov.gz"), optional: true
 tag "$sample_with_well_coordinate"
-label 'pyProcess'
 publishDir { outDir }, pattern: "{CG,CH}/*.cov.gz", mode: 'copy'
+label 'process_medium_memory'
 script:
     outDir = file(params.outDir) / "samples" / "methylation_coverage" / "cov" / sample.tokenize('.')[0]
 """
@@ -111,8 +111,8 @@ input:
 output:
 	tuple val(sample), path("*_cov.h5"), optional: true // test datasets may have no passing cells for one well
 tag "$sample_with_well_coordinate"
-label 'pyProcess'
 publishDir { outDir }, pattern: "*_cov.h5", mode: 'copy'
+label 'process_medium_memory'
 script:
     outDir = file(params.outDir) / "samples" / "methylation_coverage" / "amethyst" / sample.tokenize('.')[0]
 """

@@ -17,7 +17,7 @@ input:
 output:
 	tuple val(sample), path("${sample}.allCells.csv") , emit: allCells
 tag "$sample"
-label 'pyProcess'
+label 'process_single'
 script:
     libStruct = "$references/$libStructJsonFileName"
 	"""
@@ -34,6 +34,7 @@ input:
 output:
 	tuple val(sample), path("${sampleWellCoordinate}.tss_enrich.csv"), emit: enrich
 tag "$sampleWellCoordinate"
+label 'process_single'
 script:
 	"""
 	tss_enrich.py --tss_bed $tssBed --bg_bed $backgroundBed --id $sampleWellCoordinate --cells $allCells --bam $bam
@@ -61,7 +62,7 @@ publishDir { outDir }, pattern: "${sample}/png", mode:'copy'
 publishDir file(params.outDir) / "metrics_for_reporting", pattern: "${sample}.tss_enrich.csv", mode:'copy'
 publishDir file(params.outDir) / "samples", pattern: "${sample}.allCells.csv", mode:'copy'
 tag "$sample"
-label 'pyProcess'
+label 'process_single'
 script:
 	opts = ""
 	if (trimmingAndMapping) {
@@ -94,7 +95,7 @@ publishDir file(params.outDir) / "report" / "library_report", pattern: "${libNam
 publishDir file(params.outDir) / "report" / "library_report", pattern: "${libName}/csv", mode:'copy'
 publishDir file(params.outDir) / "report" / "library_report", pattern: "${libName}/png", mode:'copy'
 tag "$libName"
-label 'pyProcess'
+label 'process_single'
 script:
     libStruct = "$references/$libStructJsonFileName"
 	"""
