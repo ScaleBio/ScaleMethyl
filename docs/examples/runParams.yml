@@ -4,10 +4,6 @@
 ### or a directory with fastq files
 fastqDir : "s3://scale.pub/testData/methylation/downsampled_pbmcs/"
 
-# Please check the PCR indices that you are using. 
-# If using an old set of PCR indices (before 09/2023), prev_pcr/lib.json should be provided instead of lib.json
-libStructure: "lib.json"
-
 ### A file listing all samples in the analysis with their barcode sequences and sample settings
 samples : ${projectDir}/docs/examples/samples.csv
 

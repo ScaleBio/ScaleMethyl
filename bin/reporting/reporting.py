@@ -16,12 +16,12 @@ from matplotlib import pyplot as plt
 pd.options.mode.chained_assignment = None
 
 CELL_STAT_COL_NAMES = ["Number of Passing Cells",
-                       "Percent Reads in Passing Cells",
+                       "Reads in Passing Cells",
                        "Median Unique Reads",
                        "Median CG's Covered",
                        "Median CH's Covered",
-                       "Median CG Methylation Percent",
-                       "Median CH Methylation Percent",
+                       "Median CG Methylation",
+                       "Median CH Methylation",
                        ]
 class Utils:
     def get_passing_cells(all_cells:Path, sample:str) -> list[str]:
@@ -341,18 +341,16 @@ class BuildDatapane:
         fig.write_image(f"{self.out_dir}/png/{self.sample}.cellSaturationBox.png")
         return dp.Plot(fig)
 
-    def build_threshold_table(self) -> dp.Table:
-        threshold_dict = {}
+    def build_cell_table(self) -> dp.Table:
+        cells_called = {}
         for sample in self.all_cells["sample"].unique():
-            # Get minimum unique reads for passing cells for a single sample
-            threshold_dict[sample] = [int(
-                self.all_cells[self.all_cells["sample"] == sample][self.all_cells["pass"] == "pass"]["unique_reads"].min()
-            )]
-        threshold = pd.DataFrame(threshold_dict)
-        threshold = threshold.T.reset_index()
-        threshold.columns = ['Metric', 'Value']
-        return (DatapaneUtils.createTableIgnoreWarning(threshold[["Metric", "Value"]].style.pipe(
-            DatapaneUtils.styleTable, title="Unique reads threshold for cell calling", hideColumnHeaders=True, boldColumn=['Metric'], numericCols=['Value'])))
+            ncells = ((self.all_cells["sample"] == sample) & (self.all_cells["pass"] == "pass")).sum()
+            cells_called[sample] = [f"{ncells:,}"]
+        cells = pd.DataFrame(cells_called)
+        cells = cells.T.reset_index()
+        cells.columns = ['Sample', 'Cells']
+        return DatapaneUtils.createTableIgnoreWarning(cells[["Sample", "Cells"]].style.pipe(
+            DatapaneUtils.styleTable, title="Cells Called"))
 
     def build_combined_passing_met_stats_table(self, combined_passing_met: pd.DataFrame) -> dp.Table:
         for idx, col_name in enumerate(CELL_STAT_COL_NAMES):
@@ -395,40 +393,32 @@ class BuildDatapane:
         summary_stats.to_csv(f"{self.out_dir}/csv/{self.sample}.summaryStats.csv", index=False)
 
     def build_summary_stats_table(self, mapping_stats: pd.DataFrame | bool, trimming_stats: pd.DataFrame | bool) -> dp.Table:
+        metric_names = ["total_reads", "percent_passing_trimming", "percent_passing_mapping", "reads_per_passing_cell", "saturation"]
         if isinstance(mapping_stats, bool) and isinstance(trimming_stats, bool):
             summary_stats = pd.DataFrame.from_dict({
-                "Metric": ["total_reads", "percent_passing_trimming", "percent_passing_mapping", "reads_per_passing_cell"],
-                "Value": [np.nan, np.nan, np.nan, np.nan]
-            }, dtype="object")
-        elif self.met_df.empty:
-            summary_stats = pd.DataFrame.from_dict({
-                "Metric": ["total_reads",
-                           "percent_passing_trimming",
-                           "percent_passing_mapping",
-                           "reads_per_passing_cell",
-                           "saturation"],
-                "Value": [int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]),
-                          trimming_stats[trimming_stats["Metric"] == "percent_passing"]["Value"].to_list()[0],
-                          (mapping_stats[mapping_stats["Metric"] == "mapped_reads"]["Value"].to_list()[0]/trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0])*100,
-                          np.nan,
-                          np.nan]
+                "Metric": metric_names,
+                "Value": [np.nan, np.nan, np.nan, np.nan, np.nan]
             }, dtype="object")
         else:
-            summary_stats = pd.DataFrame.from_dict({
-                "Metric": ["total_reads",
-                           "percent_passing_trimming",
-                           "percent_passing_mapping",
-                           "reads_per_passing_cell",
-                           "saturation"],
-                "Value": [int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]),
-                          trimming_stats[trimming_stats["Metric"] == "percent_passing"]["Value"].to_list()[0],
-                          (mapping_stats[mapping_stats["Metric"] == "mapped_reads"]["Value"].to_list()[0]/trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0])*100,
-                          int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]/len(self.met_df)),
-                          round(1 - (self.all_cells['unique_reads'].sum()/self.all_cells['total_reads'].sum()), 2)]
-            }, dtype="object")
+            total_reads = f"{int(trimming_stats[trimming_stats['Metric'] == 'total_reads']['Value'].to_list()[0]):,}"
+            trimmed_reads = f"{trimming_stats[trimming_stats['Metric'] == 'percent_passing']['Value'].to_list()[0] / 100:.1%}" # Convert percentage to fraction
+            mapped_reads = f"{(mapping_stats[mapping_stats['Metric'] == 'mapped_reads']['Value'].to_list()[0]/trimming_stats[trimming_stats['Metric'] == 'total_reads']['Value'].to_list()[0]):.1%}"
+            if self.met_df.empty:
+                summary_stats = pd.DataFrame.from_dict({
+                    "Metric": metric_names,
+                    "Value": [total_reads, trimmed_reads, mapped_reads, np.nan, np.nan]
+                }, dtype="object")
+            else:
+                summary_stats = pd.DataFrame.from_dict({
+                    "Metric": metric_names,
+                    "Value": [total_reads, trimmed_reads, mapped_reads,
+                            f"{int(trimming_stats[trimming_stats['Metric'] == 'total_reads']['Value'].to_list()[0]/len(self.met_df)):,}",
+                            f"{1 - (self.all_cells['unique_reads'].sum()/self.all_cells['total_reads'].sum()):.2f}"
+                            ]
+                }, dtype="object")
         summary_stats.iloc[0, summary_stats.columns.get_loc('Metric')] = "Total Reads"
-        summary_stats.iloc[1, summary_stats.columns.get_loc('Metric')] = "Percent Reads Passing Trimming"
-        summary_stats.iloc[2, summary_stats.columns.get_loc('Metric')] = "Percent Reads Passing Mapping"
+        summary_stats.iloc[1, summary_stats.columns.get_loc('Metric')] = "Reads Passing Trimming"
+        summary_stats.iloc[2, summary_stats.columns.get_loc('Metric')] = "Reads Passing Mapping"
         summary_stats.iloc[3, summary_stats.columns.get_loc('Metric')] = "Reads Per Passing Cell"
         summary_stats.iloc[4, summary_stats.columns.get_loc('Metric')] = "Saturation"
         return (DatapaneUtils.createTableIgnoreWarning(summary_stats[["Metric", "Value"]].style.pipe(
@@ -445,12 +435,12 @@ class BuildDatapane:
                        'sample_name'
                       ]
         metric_values = [len(self.met_df),
-                         (self.all_cells[self.all_cells['pass'] == 'pass']['total_reads'].sum()/self.all_cells['total_reads'].sum())*100,
+                         self.all_cells[self.all_cells['pass'] == 'pass']['total_reads'].sum()/self.all_cells['total_reads'].sum(),
                          int(self.met_df['unique_reads'].median()),
                          int(self.met_df['cg_cov'].median()),
                          int(self.met_df['ch_cov'].median()),
-                         self.met_df['mcg_pct'].median(),
-                         self.met_df['mch_pct'].median(),
+                         self.met_df['mcg_pct'].median()/100, # Convert percentage to fraction
+                         self.met_df['mch_pct'].median()/100,
                          self.sample
                         ]
         if 'tss_enrich' in self.met_df.columns:
@@ -471,10 +461,18 @@ class BuildDatapane:
         met_stats = met_stats[met_stats['Metric'] != 'sample_name']
         met_stats = met_stats.reset_index(drop=True)
 
+        # Reformat metric names and numeric values for HTML report (vs. .csv)
         for idx, col_name in enumerate(CELL_STAT_COL_NAMES):
             met_stats.iloc[idx, met_stats.columns.get_loc('Metric')] = col_name
+            if col_name in ["Number of Passing Cells", "Median Unique Reads", "Median CG's Covered", "Median CH's Covered"]:
+                met_stats.iloc[idx, 1] = f"{met_stats.iloc[idx, 1]:,}"
+            if col_name in ["Reads in Passing Cells", "Median CG Methylation", "Median CH Methylation"]:
+                met_stats.iloc[idx, 1] = f"{met_stats.iloc[idx, 1]:.1%}"
         if 'tss_enrich' in self.met_df.columns:
-            met_stats.iloc[len(CELL_STAT_COL_NAMES), met_stats.columns.get_loc('Metric')] = "Median TSS Enrichment"
+            idx = len(CELL_STAT_COL_NAMES)
+            met_stats.iloc[idx, met_stats.columns.get_loc('Metric')] = "Median TSS Enrichment"
+            met_stats.iloc[idx, 1] = f"{met_stats.iloc[idx, 1]:.2f}"
+
         return (DatapaneUtils.createTableIgnoreWarning(met_stats[["Metric", "Value"]].style.pipe(
             DatapaneUtils.styleTable, title="Cell Statistics", hideColumnHeaders=True, boldColumn=['Metric'], numericCols=['Value'])))
 
@@ -482,7 +480,7 @@ class BuildDatapane:
         tmp_df = self.met_df.rename(columns={"cg_cov": "CG", "ch_cov": "CH"})
         IN = tmp_df[['sample', 'CG', 'CH']].melt(id_vars=['sample'], var_name='variable', value_name='value')
         fig = px.box(IN, x='variable', y='value', color='sample', points='suspectedoutliers', color_discrete_map=self.color_map)
-        update_fig_layout(fig, 'Cell Cytosines Covered', '', 'Cytosines Covered', False, 800, 500, self.is_library_report, 'category', 'log')
+        update_fig_layout(fig, 'Coverage per Cell', '', 'Cytosines Covered', False, 800, 500, self.is_library_report, 'category', 'log')
         fig.write_image(f"{self.out_dir}/png/{self.sample}.cellCoveredBox.png")
         return dp.Plot(fig)
 
@@ -490,7 +488,7 @@ class BuildDatapane:
         tmp_met_df = self.met_df.rename(columns={"mcg_pct": ""})
         IN = tmp_met_df[["sample", ""]].melt(id_vars=["sample"], var_name="", value_name="value")
         fig = px.box(IN, x='', y='value', color='sample', points='suspectedoutliers', color_discrete_map=self.color_map)
-        update_fig_layout(fig, 'CG Cell Methylation', '', 'Cell Methylation %', False, 800, 500, self.is_library_report, 'category')
+        update_fig_layout(fig, 'CG Methylation per Cell', '', 'Methylation %', False, 800, 500, self.is_library_report, 'category')
         fig.update_layout(yaxis=dict(range=[0, 100]))
         fig.write_image(f"{self.out_dir}/png/{self.sample}.cellMethylCgPercentBox.png")
         return dp.Plot(fig)
@@ -499,7 +497,7 @@ class BuildDatapane:
         tmp_met_df = self.met_df.rename(columns={"mch_pct": ""})
         IN = tmp_met_df[["sample", ""]].melt(id_vars=["sample"], var_name="", value_name="value")
         fig = px.box(IN, x='', y='value', color='sample', points='suspectedoutliers', color_discrete_map=self.color_map)
-        update_fig_layout(fig, 'CH Cell Methylation', '', 'Cell Methylation %', False, 800, 500, self.is_library_report, 'category')
+        update_fig_layout(fig, 'CH Methylation per Cell', '', 'Methylation %', False, 800, 500, self.is_library_report, 'category')
         fig.update_layout(yaxis=dict(range=[0, IN["value"].max() + 1]))
         fig.write_image(f"{self.out_dir}/png/{self.sample}.cellMethylChPercentBox.png")
         return dp.Plot(fig)
@@ -508,7 +506,7 @@ class BuildDatapane:
         tmp_met_df = self.met_df.rename(columns={"tss_enrich": ""})
         IN = tmp_met_df[['sample', '']].melt(id_vars=["sample"], var_name="variable", value_name="value")
         fig = px.box(IN, x='variable', y='value', color='sample', points='suspectedoutliers', color_discrete_map=self.color_map)
-        update_fig_layout(fig, 'Tss Enrichment', '', 'Tss Enrichment per Cell', False, 800, 500, self.is_library_report, 'category')
+        update_fig_layout(fig, 'TSS Enrichment per Cell', '', 'TSS Fold Enrichment', False, 800, 500, self.is_library_report, 'category')
         fig.update_layout(yaxis=dict(range=[0, IN["value"].max() + 1]))
         fig.write_image(f"{self.out_dir}/png/{self.sample}.cellTssEnrichBox.png")
         return dp.Plot(fig)

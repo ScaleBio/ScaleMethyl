@@ -63,7 +63,7 @@ def main():
     else:
         print("bc_parser metrics not available", file=sys.stderr)
         dp_list_read_qc.append(datapane_obj.build_bc_parser_stats(False))
-    dp_list_read_qc.append(datapane_obj.build_threshold_table())
+    dp_list_read_qc.append(datapane_obj.build_cell_table())
     dp_list_read_qc.append(datapane_obj.build_total_and_unique_reads_box())
     dp_list_read_qc.append(datapane_obj.build_saturation_box())
     datapane_obj.build_combined_passing_met_stats_table(library_passing_cell_summary_stats)

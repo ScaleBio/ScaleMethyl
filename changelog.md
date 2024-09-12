@@ -1,6 +1,12 @@
 # Version 1.1.0
-* Changed [matrix format](docs/outputs.md#matrix-detailed-descriptions). 
-* Updated QC metrics and sample QC (HTML) report
+* Added Amethyst compatible .h5 cell-methylation outputs
+* Changed [matrix format](docs/outputs.md#matrix-detailed-descriptions).
+* Filter reads/fragments with artifically high CH methylation signal 
+* Updated QC metrics and sample QC (HTML) [report](docs/qcReport.md)
+* Updated [output directory structure](docs/outputs.md)
+* Updated per-cell methylation signal extraction to handle indel errors in reads as well as improve runtime performance
+* Combined all depenencies in a single conda environment / docker container
+* Use cutadapt directly for adapter trimming
 
 # Version 1.0.4
 * Added optional [single-cell output formats](docs/analysisParameters.md#optional-intermediate-file-outputs): ALLC and Bismark coverage files

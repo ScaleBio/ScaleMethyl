@@ -75,18 +75,26 @@ script:
 """
 }
 
+// Create .allc files for allcools from internal methylation coverage parquet files and tabix index
 process CreateALLC {
 input:
 	tuple val(sample), val(sample_with_well_coordinate), path(allCells), path(met)
 output:
 	tuple val(sample), path("{CG,CH}/*.allc.tsv.gz"), optional: true
+	tuple val(sample), path("{CG,CH}/*.tbi"), optional: true
 tag "$sample_with_well_coordinate"
 publishDir { outDir }, pattern: "{CG,CH}/*.allc.tsv.gz", mode: 'copy'
+publishDir { outDir }, pattern: "{CG,CH}/*.tbi", mode: 'copy'
 label 'process_medium_memory'
 script:
     outDir = file(params.outDir) / "samples" / "methylation_coverage" / "allc" / sample.tokenize('.')[0]
 """
 	write_allc.py --met_calls $met --all_cells $allCells --sample $sample_with_well_coordinate
+	for file in {CG,CH}/*.tsv.gz; do 
+		if [[ -f "\${file}" ]]; then 
+		tabix -@ ${task.cpus} -b2 -e2 -s1 \${file};
+		fi
+	done
 """
 }
 

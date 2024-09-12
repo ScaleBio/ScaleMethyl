@@ -44,7 +44,7 @@ script:
 // Generate datapane html report for each sample
 process GenerateSampleReport {
 input:
-	tuple val(sample), path(allCells), path(fragmentHist), path(dedupStats), path(mappingStats), path(trimmingStats), path(tssEnrich)
+	tuple val(sample), path("allCells.csv"), path(fragmentHist), path(dedupStats), path(mappingStats), path(trimmingStats), path(tssEnrich) // avoid overwriting input *.allCells.csv
         path(references)
         val(libStructJsonFileName)
 	val(trimmingAndMapping)
@@ -74,7 +74,7 @@ script:
     libStruct = "$references/$libStructJsonFileName"
     outDir = file(params.outDir) / "report" / "sample_reports"
 	"""
-	generate_sample_report.py --sample_name ${sample} --out_dir ${sample} --all_cells ${allCells} --library_structure_json $libStruct \
+	generate_sample_report.py --sample_name ${sample} --out_dir ${sample} --all_cells allCells.csv --library_structure_json $libStruct \
 	--fragment_hist ${fragmentHist} --tss_enrich ${tssEnrich} --dedup_stats ${dedupStats} $opts
 	"""
 }

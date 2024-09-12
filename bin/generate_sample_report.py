@@ -9,6 +9,7 @@ import os
 import numpy as np
 import shutil
 from pathlib import Path
+
 from reporting.reporting import BuildDatapane, PlatePlotBuilder
 
 
@@ -85,7 +86,7 @@ def main():
         print(f"Number of NaN values in tss enrichment column: {all_cells['tss_enrich'].isna().sum()}")
         print(f"Number of Inf values in tss enrichment column: {all_cells['tss_enrich'].isin([np.inf]).sum()}")
     met_passing = all_cells[all_cells["pass"]=="pass"].reset_index(drop=True)
-    all_cells.to_csv(args.all_cells.name, index=False)
+    all_cells.to_csv(f"{args.sample_name}.allCells.csv", index=False)
 
     shutil.copy(args.fragment_hist, f"{args.sample_name}/csv/{args.fragment_hist.name}")
     
