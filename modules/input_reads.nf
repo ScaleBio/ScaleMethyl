@@ -28,7 +28,7 @@ def constructSampleName (bcParserOut, splitFastq) {
     // subsampleName is the first part of the filename before the first '_' and after the first '.'
         // subsampleName indicates unique identifier which corresponds to the fastq-num we provide as input to bcParser
     if (splitFastq) {
-        def tok = file.getName().toString().tokenize('.')
+        def tok = file.getName().toString().tokenize('_')
         sampleName = tok[0]
         subsampleName = "${sampleName}.${(tok[1].tokenize('_'))[0]}"
     }
@@ -114,6 +114,7 @@ output:
 	tuple val(libName), path("$outDir/metrics.json"), emit: metrics
 publishDir file(params.outDir) / "barcodes", pattern: "$outDir/*{txt,tsv,json}", mode: 'copy'
 publishDir file(params.outDir) / "barcodes", pattern: "$outDir/*gz", enabled: params.fastqOut
+/* Optionally publish barcode demuxed fastq files */
 tag "$libName" 
 label 'process_medium'
 script: 
@@ -124,7 +125,7 @@ script:
 	} 
 	libStruct = "$libStructDir/$libStructJson" 
 """ 
-	bc_parser -v --write-fastq --demux $sheet --lib-name $libName --reads ${fqFiles.join(" ")} --lib-struct $libStruct --out $outDir --fastq-num $fastqNum
+	bc_parser -v --write-fastq --demux $sheet --lib-name $libName --reads ${fqFiles.join(" ")} --lib-struct $libStruct --out $outDir --fastq-num $fastqNum --write_barcode_sequence
 """ 
 }
 

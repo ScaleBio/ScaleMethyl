@@ -6,30 +6,25 @@ For detailed information about the library and sample level QC reports see [qcRe
 ## Key output files
 | Directory | File | Description |
 |-----------|------|-------------|
-| `report` | `<sample>.report.html` | An interactive standalone HTML report including key metrics/figures for each sample |
-| `report/csv` | `<sample>.allCells.csv` | Metrics per cell-barcode, including barcodes / well positions |
-|              | `<sample>.total_{passing_cells,reads}_<tn5>_<plate_#>.csv` | Total passing cells and reads for each well coordinate on a sample level |
-|              | `<sample>.mapping_stats.csv` | Sample-level mapping statistics derived from [BSBolt](https://github.com/NuttyLogic/BSBolt) alignment output  |
-|              | `<sample>.trimming_stats.csv` | Sample-level read summary statistics after trimming  |
-|              | `<sample>.passingCellSummaryStats.csv` | Sample-level summary statistics for all passing cells in sample   |
-|              | `<sample>.fragment_hist.csv` | Read length histogram for a sample   |
-| `library_report` | `library.<libName>.report.html` | Barcode summary and demultiplexing statistics for the whole library (potentially multiple samples) |
-|                  | `<libName>.combinedPassingCellStats.csv` | Key metrics for passing cells for the whole library |
-| `library_report/csv` | `<library>.total_{passing_cells,reads}_{i5,i7}.csv` | Total passing cells and reads for each well coordinate on a library level |
-| `trim` | `<sample>.<tn5>/<sample>.<tn5>.trim_stats.json` | Detailed trimming reports for demultiplexed sample fastq files   |
-| `fastqc` | `*.html` | [fastqc](https://github.com/s-andrews/FastQC) report for each fastq file in the sequencing library
-| `barcodes/<libName>.<fastqNum>.demux` | `<sample>.*.fastq.gz` | Sample fastq files (Demultiplexed and barcode error-corrected); only included with `--fastqOut true` |
-| `multiqc` | `<sample>.<tn5>*.multiqc_report.html` | [MultiQC](https://multiqc.info) report for fastq generation, fastQC and trimming
-| `library_barcode_metrics` | `<libName>.metrics.json` | [bc_parser](bc_parser.md) metrics post demux and barcode correction 
-| `alignment` | `<sample>.<tn5>/<sample>.<tn5>.bam` | [BSBolt](https://github.com/NuttyLogic/BSBolt) alignment output, including BAM file, with single-cell barcode and UMI information in tags for each sample.tn5; only included with `--bamOut true`
-| `bamMerge` | `<sample>.<tn5>/<sample>.<tn5>.bam` | Merged BAM files with reads that have the same tn5(only if starting workflow from BAM). The @RG tags ID, SM, PL, and LB are assigned for each read; only included with `--bamMergeOut true`
-| `bamDeDup` | `<sample>.<tn5>/<sample>.<tn5>.dedup.bam` | [sc_dedup](sc_dedup.md) Coordinate-sorted BAM files with duplicate reads removed.  Reads whose leftmost aligned fragment has the same leftmost position as a previously encountered read are considered duplicates; only included with `--bam-dedup-out = true`
-| `matrix` | `<sample>.{CG,CH}.{score}.mtx.gz` | CG and CH binned genome-wide matrix files in Matrix Market format. Rows are the genomic bins, and columns are the cellular barcode, see `features.tsv` and `barcodes.tsv` respectively. Custom binned bed files for the CG and CH matrix generation can be passed using the `genomeTiles` and `genomeTilesCh` options in the [genomes.json](genomes.md); only included with `--matrixGenerationCG true` or `--matrixGenerationCH true`
-| `cov` | `<barcode>.{CG,CH}.cov.gz` | Per-cell methylation calls in bismark .cov format
-| `allc` | `{CG,CH}/<barcode>.allc.tsv.gz` | Per-cell methylation calls in bismark allCools .allc format; only included with `--allcOut` 
-| `amethyst` | `<sample>.<tn5>_cov.h5` | Per-cell methylation calls in HDF5 format for analysis with the [Amethyst](https://github.com/lrylaarsdam/amethyst) R package.
+| `report` | | QC reports and statistics |
+| `report/sample_reports/<sample>` | `<sample>.report.html` | An interactive standalone HTML report including key metrics/figures for each sample |
+|                  | `csv/<sample>.*.csv` | Sample metrics in csv format |
+| `report/library_report/<library>` | `library.<libName>.report.html` | Barcode summary and demultiplexing statistics for the whole library (potentially multiple samples) |
+|                  | `csv/<libName>.combinedPassingCellStats.csv` | Key metrics for passing cells for the whole library |
+| `samples` | | Single-cell methylation outputs |
+|           | `<sample>.allCells.csv` | Metrics per cell-barcode, including barcodes / well positions |
+| `samples/genome_bin_matrix` | `<sample>.{CG,CH}.{score}.mtx.gz` | CG and CH binned genome-wide matrix files in Matrix Market format |
+| `samples/methylation_coverage` | `<format>/<sample>/{CG,CH}/<barcode>.*` | Per-cell methylation calls in bismark .cov, .allc or amethyst .h5 format |
+| `fastq` | | Fastq generation, QC and processing |
+|         | `fastqc/*.html` | [fastqc](https://github.com/s-andrews/FastQC) report for each fastq file in the sequencing library |
+| `barcodes` | `<sample>.<split>.demux/*.fastq.gz` | Demultiplexed sample fastq files; only included with `--fastqOut true` |
+| `alignment` | | Outputs of Bisulfite alignment, split per sample / Tn5-barcode |
+| `alignment/dedup` | `<sample>.<tn5>/*.bam` | Deduplicated alignment output, with single-cell barcode and UMI information in tags |
 
-### Matrix Detailed Descriptions 
+### Genome-bin Methylation Matrix
+Rows are the genomic bins, and columns are the cellular barcode, see `features.tsv` and `barcodes.tsv` respectively.
+
+Custom binned bed files for the CG and CH matrix generation can be passed using the `genomeTiles` and `genomeTilesCh` options in the [genomes.json](genomes.md); only included with `--matrixGenerationCG true` or `--matrixGenerationCH true` 
 
 `cellGlobalMet` = Global methylation rate of the cell (methylated / total covered )
 

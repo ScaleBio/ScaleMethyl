@@ -2,7 +2,7 @@
 
 All analysis parameters can be set in a [runParams.yml](examples/runParams.yml) file, which is then passed to nextflow with `nextflow run -params-file runParams.yml`. 
 Alternatively each option is this file can also be set on the nextflow command-line directly, overwriting the value in the parameter file. E.g.
-`nextflow run --samples=samples.foo.csv`
+`nextflow run /PATH/TO/ScaleMethyl -profile docker --samples=samples.foo.csv`
 
 *Note* that `nextflow` options are given with a single `-`, while workflow parameters (e.g. `samples`) are given with a double dash `--`.
 
@@ -17,17 +17,16 @@ OR
 * `bam1Dir : "path/to/bams"`  
 * `bam2Dir : "path/to/bams"`  
 
-where fastqDir is a directory containing all bcl-converted fastq files. See [Fastq Generation](fastqGeneration.md) for details on file names, etc.
+where `fastqDir` is a directory containing all input fastq files. See [Fastq Generation](fastqGeneration.md) for details on file names, etc.
 
-When starting from a sequencer run folder the workflow uses Illumina [bcl-convert](https://support.illumina.com/sequencing/sequencing_software/bcl-convert.html) for automatic fastq generation.
+`runFolder` is the top-level directory for a sequencer output (containing `RunInfo.xml`). the workflow uses Illumina [bcl-convert](https://support.illumina.com/sequencing/sequencing_software/bcl-convert.html) for automatic fastq generation.
 
 When starting from bam files refer to [mergeBam](mergeBam.md) for details on additional parameters, convention on filenames, etc. 
 
-### Sample Information
+### Sample Barcode Table
 * `samples : "samples.csv"`
 
-A [file](examples/samples_largekit.csv) listing all samples in the analysis with their names, barcode sequences and optional sample settings.  
-    - See [samples_largekit.csv](examples/samples_largekit.csv) for the large kit, and [samples_smallkit.csv](examples/samples_smallkit.csv) for the small kit.
+A [file](samplesCsv.md) listing all samples in the analysis with their names, sample barcodes and optional sample settings
 
 ### Reference genome
 * `genome : "/genomes/grch38/genome.json"`
@@ -35,11 +34,7 @@ A [file](examples/samples_largekit.csv) listing all samples in the analysis with
 Path to a [genome.json](genomes.md) file that contains the location of all sequence and index files as well as other parameters for the reference genome to use. 
 
 ## Optional and Advanced parameters
-Run `nextflow run path/to/ScaleMethyl --help` for a description of available options and see the example [runParams.yml](examples/runParams.yml) file.
-
-System options (compute resource requirements, etc.) as well as all parameter defaults, are in the workflow [nextflow.config](../nextflow.config).
-
-### Optional and Advanced Parameters
+See [nextflow.config](../nextflow.config) for a list of all available parameters. The file also includes nextflow system options (compute resource requirements, etc.).
 
 #### Optional file outputs 
 * `fastqOut` controls publishing fastq files from bcl-convert and bcParser barcode corrected sample demultiplexed fastqs to the output directory. If fastq files are not needed for custom analysis, disabling fastq output will save compute time and storage space. 
@@ -84,19 +79,21 @@ If you wish to rerun only the report with a more stringent threshold and can fil
 
 
 ### Parallel execution
-The workflow can be executed with extra parallelism by setting the `splitFastq` parameter. If starting from runfolder, that controls whether samples are split by i5 barcode in the `bcl-convert` step. This results in n fastq files (per library/lane), where n is the number of i5 barcodes used in the experiment. This allows the workflow to split up the demultiplexing step more than 1-4 lanes. After bcl-convert those library fastq files are demuxed and barcode corrected into sample fastqs files for each TN5 barcode by `bcParser`. This results in 288 sets of fastq files which then go through alignment, deduplication and extraction in parallel.
+Analysis is by default executed highly parallel, controlled by the `splitFastq` parameter. If starting from runfolder, that controls whether library fastq files are split by i5 barcode in the `bcl-convert` step. Each of these fastq files are processed in parallel and demultiplexed into sample-specific fastqs files for each TN5 barcode by `bcParser`. This results in 288 sets of fastq files (`R1` & `R2`) which then go through alignment, deduplication and extraction in parallel. Split sub-samples are merged again at the end (methylation outputs, QC reports).
 
-Since our methylation workflow is quite compute intensive, our recommendation is to keep the default for `splitFastq`(true by default). The caveat is that this configuration will launch around 288 jobs in parallel for each sample, so your infrastructure must be able to support that.
+When starting from fastq files, the first workflow steps are parallelized per set of input fastq files, so it is important to have the data in multiple input fastq files for better performance; see [fastqGeneration](fastqGeneration.md)
+
+Since single-cell methylation analysis is quite compute intensive, our recommendation is to keep `splitFastq` set to true. The caveat is that this configuration will launch a large number of compute jobs in parallel for each sample, so your infrastructure must be able to support that.
 
 ### Library Structure Definition
 * `libStructure : "lib.json"`
 
 The library structure JSON file defines 
 * Barcode locations in paired-end reads Where in the reads cell-barcodes are found
-* List of allowed barcode sequences for [tagmentation](../references/tgmt.txt) barcodes, [i7](../references/i7.txt) and [i5](../references/i5.txt) MET PCR barcodes.
-* Which parts of the reads represent genomic DNA and which should be masked (e.g. PCR barcodes, mosaic end sequences, 10 base randomer)
+* List of allowed barcode sequences for [Tn5](../references/tgmt.txt) barcodes, [i7](../references/i7.txt) and [i5](../references/i5.txt) PCR barcodes.
+* Which parts of the reads represent genomic DNA and which should be masked (e.g. adapter sequences, randomer)
 
 The default file, for our standard product configuration, is included in [lib.json](../references/lib.json).
 
-Previous alpha kit PCR indexes can be accessed from [references/prev_pcr/lib.json](../references/prev_pcr/lib.json) with `libStructure : "prev_pcr/lib.json"` in the runParams.yml.
+Previous alpha kit configuration is available with `libStructure : "prev_pcr/lib.json"` in the runParams.yml.
 

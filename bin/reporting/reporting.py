@@ -365,13 +365,13 @@ class BuildDatapane:
                 bc_metrics_dict = json.load(f)
             read_info = bc_metrics_dict['reads']
             bc_metrics_df = pd.DataFrame({
-                'Status': ['Pass', 'BarcodeError', 'LinkerError', 'SequenceError'],
-                'Reads': [read_info['Pass'][0], read_info['BarcodeError'][0], read_info['LinkerError'][0], read_info['SequenceError'][0]],
-                'Percent': [read_info['Pass'][1], read_info['BarcodeError'][1], read_info['LinkerError'][1], read_info['SequenceError'][1]]
+                'Status': ['Pass', 'BarcodeError', 'LinkerError', 'TooShortError'],
+                'Reads': [read_info['Pass'][0], read_info['BarcodeError'][0], read_info['LinkerError'][0], read_info['TooShortError'][0]],
+                'Percent': [read_info['Pass'][1], read_info['BarcodeError'][1], read_info['LinkerError'][1], read_info['TooShortError'][1]]
             })
         else:
             bc_metrics_df = pd.DataFrame({
-                'Status': ['Pass', 'BarcodeError', 'LinkerError', 'SequenceError'],
+                'Status': ['Pass', 'BarcodeError', 'LinkerError', 'TooShortError'],
                 'Reads': [np.nan, np.nan, np.nan, np.nan],
                 'Percent': [np.nan, np.nan, np.nan, np.nan]
             })
