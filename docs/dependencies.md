@@ -1,12 +1,12 @@
 # Dependency Management
 
-The ScaleBio Methylation workflow requires a number of dependencies to run. These include ScaleBio developed and open-source executables, python libraries, etc. There are three alternative ways to provide these dependencies; select one of these, depending on what is easiest on your system, and follow the instructions below.
+The ScaleBio Seq Suite: Methylation workflow requires a number of dependencies to run. These include ScaleBio developed and open-source executables, python libraries, etc. Nextflow provides different options to automatically provide these dependencies. Pick one of these approaches and select the corresponding Nextflow configuration `-profile`, or install dependencies manually. 
 
 ## Using Docker or Singularity
-If your system supports [docker containers](https://www.docker.com/), this is the recommended way to handle all dependencies for the ScaleBio Methylation workflow. We provide pre-build docker containers and the workflow is setup to automatically use them.
+If your system supports [docker containers](https://www.docker.com/), this is the recommended way to handle all dependencies for the workflow. We provide pre-built docker containers and the workflow is setup to automatically use them.
 This is enabled by adding `-profile docker` to the nextflow command-line.
 
-If your system does not support *docker*, [singularity](https://sylabs.io/docs/) is an alternative that is enabled on many HPC clusters (2.3.x or newer). Setting `-profile docker,singularity` (**no space**) will use the _singularity_ engine for all dependencies. The environment variable `NXF_SINGULARITY_CACHEDIR` can be used to control where singularity images are stored. This should be a writable location that is available on all compute nodes. Similarly `TMPDIR` should be changed from the default `/tmp` to a location writable from the container if necessary.
+If your system does not support *docker*, [singularity](https://sylabs.io/docs/) is an alternative that is enabled on many HPC clusters (2.3.x or newer). Setting `-profile singularity` will use the _singularity_ engine for all dependencies. The environment variable `NXF_SINGULARITY_CACHEDIR` can be used to control where singularity images are stored. This should be a writable location that is available on all compute nodes. Similarly `TMPDIR` should be changed from the default `/tmp` to a location writable from the container if necessary.
 
 See [Nextflow Containers](https://www.nextflow.io/docs/latest/container.html) for details and additional configuration options. 
 
@@ -17,11 +17,11 @@ Another option is using the [Conda](https://docs.conda.io/en/latest) package man
 - Install and update conda
     - `conda update -n base -c defaults conda`
 - Install [ScaleBio Tools](scaleBioTools.md)
-    - `/PATH/TO/ScaleMethyl/envs/download-scale-tools.sh`
+    - Execute [envs/download-scale-tools.sh](../envs/download-scale-tools.sh)
 - If running from a sequencer runFolder (.bcls) Illumina [BCL Convert](https://support.illumina.com/sequencing/sequencing_software/bcl-convert.html) is required to be installed (and available on `$PATH`)
 
-See the [Nextflow documentation](https://www.nextflow.io/docs/latest/conda.html) for additional detail of conda support in Nextflow.
+See the [Nextflow documentation](https://www.nextflow.io/docs/latest/conda.html) for additional detail of conda support in Nextflow. Generally automatic installation will work best if the `base` conda environment is clean, i.e. does not contain extra channels or complex packages.
 
 ## Manual Dependency installation
 As a final alternative it is also possible to simply install the required dependencies directly, either by hand or using Conda.
-A list of all requirements can be found in `envs/scaleMethyl.conda.yml`, `envs/scaleMethylPyQc.yml` and `envs/download-scale-tools.sh`. All tools need to be available on `$PATH` or in `/PATH/TO/ScaleMethyl/bin/`
+A list of all requirements can be found in [scaleMethyl.conda.yml](../envs/scaleMethyl.conda.yml), [scaleMethylPyQc.yml](../envs/scaleMethylPyQc.yml) and [download-scale-tools.sh](../envs/download-scale-tools.sh). All tools need to be available on `$PATH` or in `/PATH/TO/ScaleMethyl/bin/`

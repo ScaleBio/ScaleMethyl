@@ -117,7 +117,15 @@
                 },
                 "covOut": {
                     "type": "boolean",
-                    "description": "Publish sorted coverage files per barcode"
+                    "description": "Publish methylation extraction cov files"
+                },
+                "allcOut": {
+                    "type": "boolean",
+                    "description": "Publish ALLC files for analysis with ALLCools"
+                },
+                "amethystOut": {
+                    "type": "boolean",
+                    "description": "Publish hdf5 cov files for analysis with Amethyst"
                 },
                 "bamOut": {
                     "type": "boolean",

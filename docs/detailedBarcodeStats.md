@@ -2,7 +2,7 @@
 **Pass**: Reads for which all expected barcodes were found \
 **LinkerError**: Reads which were filtered because the fixed linker sequence between the barcodes could not be found \
 **BarcodeError**: Reads for which at least one barcode could not be matched against the expected sequences (whitelist) \
-**SequenceError**: Reads excluded from barcode matching, e.g. because they were too short
+**TooShortError**: Reads excluded from barcode matching because they were too short
 
 ## Barcode level  metrics
 **Exact**: The read contains an exact (no errors) match against one of the expected sequences (whitelist) for this barcode \

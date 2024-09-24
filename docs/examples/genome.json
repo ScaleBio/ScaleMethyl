@@ -3,8 +3,8 @@
     "speciesName": "Homo sapiens",
     "bsbolt_index": "s3://scale.pub/testData/methylation/reference/bsbolt",
     "genomeTiles": "s3://scale.pub/testData/methylation/reference/hs38d1_mainChr.50kbp.bed",
-    "genomeTilesCh": "s3://scale.pub/testData/methylation/reference/hs38d1_mainChr.250kbp.bed",
-    "bsbolt_chrs" : "s3://scale.pub/testData/methylation/reference/sc_dedup_genome.hg38.tsv",
+    "genomeTilesCh": "s3://scale.pub/testData/methylation/reference/hs38d1_mainChr.100kbp.bed",
+    "bsbolt_chrs" : "s3://scale.pub/testData/methylation/reference/contigs.hg38.tsv",
     "tssWin": "s3://scale.pub/testData/methylation/reference/Homo_sapiens.GRCh38.103.tss100UpDn.uniq.bed",
     "backgroundWin": "s3://scale.pub/testData/methylation/reference/Homo_sapiens.GRCh38.103.backgroundTssUpstream1200to1000.uniq.bed"
 }

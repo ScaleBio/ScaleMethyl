@@ -4,6 +4,7 @@ import glob
 import sys
 import os
 import re
+import json
 import pandas as pd
 from pathlib import Path
 
@@ -146,32 +147,24 @@ def build_trimming_stats(sampleName: str, outDir: Path, trimmingStatsPath: Path)
     """
     Build trimming stats from trimgalore report files
     """
-    suffix = "*.fq.gz_trimming_report_R2.txt"
+    suffix = "*.trim_stats.json"
     fullPath = os.path.join(trimmingStatsPath, sampleName + suffix)
     filenamesList = glob.glob(fullPath)
     if filenamesList == []:
-        print("No logs found for trim galore(trimming)", file=sys.stderr)
+        print("No logs found for cutadapt(trimming)", file=sys.stderr)
         return
-    total_pairs = []
-    adapter_pairs = []
-    removed_pairs = []
+    total_reads = []
+    passing_reads = []
     for file in filenamesList:
-        with open(file) as fh:
-            for line in fh:
-                if line.startswith("Total reads processed:"):
-                    count = int(re.sub('Total reads processed:|\s+|\n|,', "", line))
-                    total_pairs.append(count)
-                if line.startswith("Reads with adapters:"):
-                    count = int(re.sub('Reads with adapters:|\s+|\n|,|\(.*$', "", line))
-                    adapter_pairs.append(count)
-                if line.startswith("Number of sequence pairs removed because at least one read"):
-                    count = int(re.sub('^(.*:)|\s+|\n|,|\(.*$', "", line))
-                    removed_pairs.append(count)
+        trim_stats = json.load(open(file))
+        # Times 2 because counts are for read pairs
+        total_reads.append(trim_stats["read_counts"]["input"]*2)
+        passing_reads.append(trim_stats["read_counts"]["output"]*2)
     trimming_report = pd.DataFrame.from_dict({
-        "Metric": ["total_pairs", "adapter_pairs", "removed_pairs", "passing_pairs", "percent_passing", "total_reads", "passing_reads"],
-        "Value": [int(sum(total_pairs)), int(sum(adapter_pairs)), int(sum(removed_pairs)), int(sum(total_pairs) - sum(removed_pairs)),
-                  round(((sum(total_pairs) - sum(removed_pairs)) / sum(total_pairs) * 100), 2), int(sum(total_pairs)*2), int((sum(total_pairs) - sum(removed_pairs))*2)]
-    }, dtype="object")
+        "Metric": ["total_reads", "passing_reads", "percent_passing"],
+        "Value": [sum(total_reads), sum(passing_reads),
+                  round((sum(passing_reads) / sum(total_reads)) * 100, 2)]
+        }, dtype="object")
     trimming_report.to_csv(f'{outDir}/{sampleName}.trimming_stats.csv', index=False)
 
 

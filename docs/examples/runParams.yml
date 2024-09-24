@@ -1,19 +1,13 @@
-##### Inputs
 ### Sequencing data input can be either a Illumina sequencer RunFolder (bcl)
-### runFolder : 
+# runFolder : 
 ### or a directory with fastq files
-fastqDir : "s3://scale.pub/testData/methylation/downsampled_pbmcs/"
-
-# Please check the PCR indices that you are using. 
-# If using an old set of PCR indices (before 09/2023), prev_pcr/lib.json should be provided instead of lib.json
-libStructure: "lib.json"
+fastqDir : "s3://scale.pub/testData/methylation/downsampled_pbmcs_v1.1/"
 
 ### A file listing all samples in the analysis with their barcode sequences and sample settings
-samples : ${projectDir}/docs/examples/samples_demo.csv
+samples : ${projectDir}/docs/examples/samples.csv
 
-#### Reference information
 ### Path to a .json file defining the reference genome
 genome : ${projectDir}/docs/examples/genome.json
 
-# Value set for the test dataset. Please refer to documentation for an appropriate value to set for your actual experiment
+### Value set for the test dataset. Please refer to documentation for an appropriate value to set for your actual experiment
 minUniqCount: 1000

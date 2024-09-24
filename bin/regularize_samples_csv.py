@@ -108,6 +108,6 @@ if __name__ == '__main__':
         description='Standardize samples.csv for the workflow (defaults, column names, etc.')
     parser.add_argument('samples', metavar='SAMPLES.csv',
                     help='CSV with sample names and information for the workflow run')
-    parser.add_argument('--splitBarcodeParsing', help='Flag that denotes whether bcParser will split per TN5 well to ensure parallelization', action="store_true", default=False)
+    parser.add_argument('--splitFastq', help='Flag that denotes whether bcParser will split per TN5 well to ensure parallelization', action="store_true", default=False)
     args = parser.parse_args()
-    main(args.samples, args.splitBarcodeParsing)
+    main(args.samples, args.splitFastq)
