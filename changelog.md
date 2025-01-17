@@ -1,3 +1,11 @@
+# Version 1.2.0
+* Analysis workflow support for individual plates & subsequent plate merging (docs/mergeMultipleAlignments.md)
+* Window-size input for matrix gen, rather than file-format upload (including blacklist)
+* Post-alignment checkpoint - allows for quick re-run of matrix gen
+* Optional CH context calculations
+* allcools files are tabix indexed automatically
+* Reporting updates
+
 # Version 1.1.0
 * Added Amethyst compatible .h5 cell-methylation outputs
 * Changed [matrix format](docs/outputs.md#matrix-detailed-descriptions).

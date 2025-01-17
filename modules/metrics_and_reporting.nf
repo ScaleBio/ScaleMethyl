@@ -44,11 +44,12 @@ script:
 // Generate datapane html report for each sample
 process GenerateSampleReport {
 input:
-	tuple val(sample), path("allCells.csv"), path(fragmentHist), path(dedupStats), path(mappingStats), path(trimmingStats), path(tssEnrich) // avoid overwriting input *.allCells.csv
+	tuple val(sample), path("allCells.csv"), path(fragmentHist), path(dedupStats), path(mappingStats), path(trimmingStats), path(tssEnrich), val(libraryName), val(sampleBarcodes) // avoid overwriting input *.allCells.csv
         path(references)
         val(libStructJsonFileName)
 	val(trimmingAndMapping)
 	val(reportingOnly)
+    val(workflowVersion)
 output:
 	tuple val(sample), path("${sample}/${sample}.report.html"), emit: report
 	tuple val(sample), path("${sample}/csv/${sample}.passingCellSummaryStats.csv"), emit: passingCellMethylStats
@@ -75,7 +76,7 @@ script:
     outDir = file(params.outDir) / "report" / "sample_reports"
 	"""
 	generate_sample_report.py --sample_name ${sample} --out_dir ${sample} --all_cells allCells.csv --library_structure_json $libStruct \
-	--fragment_hist ${fragmentHist} --tss_enrich ${tssEnrich} --dedup_stats ${dedupStats} $opts
+	--fragment_hist ${fragmentHist} --tss_enrich ${tssEnrich} --dedup_stats ${dedupStats} $opts --library_name $libraryName --sample_barcodes "$sampleBarcodes" --workflow_version $workflowVersion
 	"""
 }
 
@@ -85,6 +86,7 @@ input:
 	tuple val(libName), path(allCells), path(passingCellStats), path("demuxMetrics.json")
 	path(references)
         val(libStructJsonFileName)
+    val(workflowVersion)
 output:
 	tuple val(libName), path("${libName}/library.${libName}.report.html"), emit: combinedReport
 	tuple val(libName), path("${libName}/library.${libName}.combinedPassingCellStats.csv"), emit: combinedPassingStats
@@ -101,7 +103,7 @@ script:
 	"""
 	export TMPDIR=\$(mktemp -p `pwd` -d)
 	combined_sample_report.py --library_name ${libName} --out_dir ${libName} --all_cells ${allCells} \
-	--passing_cell_stats ${passingCellStats} --library_structure_json $libStruct
+	--passing_cell_stats ${passingCellStats} --library_structure_json $libStruct --workflow_version $workflowVersion
 	"""
 }
 
@@ -156,9 +158,13 @@ main:
         }
     }
     reportInput = reportInput.join(tssEnrichBySample)
+    samplesBarcodeAndLibrary = samples.map{tuple(
+        it.sample, it.libName, it.barcodes
+    )}
+    reportInput = reportInput.join(samplesBarcodeAndLibrary)
     tssEnrichBySample.dump(tag: 'tssEnrichBySample')
     // Generate per sample html report
-    GenerateSampleReport(reportInput, libJson.getParent(), libJson.getName(), trimmingAndMapping, reporting)
+    GenerateSampleReport(reportInput, libJson.getParent(), libJson.getName(), trimmingAndMapping, reporting, workflow.manifest.version)
 
     sampleNameLibName = samples.map{tuple(
         it.sample, it.libName
@@ -177,7 +183,7 @@ main:
     passingCellMetStats.dump(tag: 'passingCellMetStats')
     libraryStats = allCellsByLibrary.join(passingCellMetStats).join(demuxMetrics)
     // Generate reports for all samples from all libraries
-    CombinedSampleReport(libraryStats, libJson.getParent(), libJson.getName())
+    CombinedSampleReport(libraryStats, libJson.getParent(), libJson.getName(), workflow.manifest.version)
 
 emit:
     allCells = GenerateMetrics.out.allCells // Information about all cell barcodes

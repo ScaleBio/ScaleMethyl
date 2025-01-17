@@ -26,12 +26,13 @@ class ParamLogger {
     public static validateParams(params, log) {
         // PLEASE ADD NEW PARAMETERS TO THE allowedParameters LIST
         def allowedParameters = [ 'runFolder', 'fastqSamplesheet', 'fastqDir', 'samples', 'libStructure', 'splitFastq',
-                                  'bclConvertParams', 'genome', 'outDir', 'resultDir', 'reporting', 'fastqOut',
-                                  'trimOut', 'bamOut', 'bamDedupOut', 'runTssEnrich', 'matrixGenerationCH',
-                                  'matrix-generation-CH', 'matrixGenerationCG', 'matrix-generation-CG', 'bam1Dir', 'bam2Dir',
-                                  'bamMergeOut', 'bamRgHeader', 'trimFastq', 'adapters', 'fastqc', 'topCellPercentile',
+                                  'bclConvertParams', 'genome', 'outDir', 'previousOutDir', 'reportingOnly', 'fastqOut',
+                                  'trimOut', 'bamOut', 'bamDedupOut', 'runTssEnrich', 'windowMatrixOut',
+                                  'bam1Dir', 'bam2Dir','bamMergeOut', 'bamRgHeader', 'trimFastq', 'adapters', 'fastqc', 'topCellPercentile',
                                   'minCellRatio', 'minUniqCount', 'minUniqTotal', 'maxUniqTotal', 'maxMemory', 'maxCpus',
-                                  'maxTime', 'dedupKey', 'minMapq', 'help', 'allcOut', 'covOut', 'chReadsThreshold', 'amethystOut' ]
+                                  'maxTime', 'dedupKey', 'minMapq', 'help', 'allcOut', 'covOut', 'chReadsThreshold', 'amethystOut',
+                                  'parquetOut','startPostAlignment', 'merged', 'calculateCH', 'calculate-CH', 'windowTileSizeCG', 
+                                  'windowTileSize-CG','windowTileSizeCH','windowTileSize-CH', 'minimumWindowSize' ]
         def masterListOfParams = allowedParameters
         allowedParameters.each { str ->
             masterListOfParams += camelToKebab(str)}
@@ -51,8 +52,14 @@ class ParamLogger {
         if ((params.runFolder || params.fastqDir) && (params.bam1Dir || params.bam2Dir)) {
             throwError("Either start from bam file or a runFolder/fastqDir, not both")
         }
-        if (params.reporting && !params.resultDir) {
-            throwError("Must specify --resultDir when --reporting is enabled")
+        if ((params.reportingOnly || params.startPostAlignment) && !(params.previousOutDir || params.merged)) {
+            throwError("Must specify --previousOutDir when --reportingOnly is enabled or using an alternate startpoint")
+        }
+        if(params.reportingOnly && params.startPostAlignment){
+            throwError("Cannot specify both --reportingOnly and --startPostAlignment")
+        }
+        if (params.merged != false && params.previousOutDir != null) {
+            throwError("Cannot specify both --previousOutDir and --merged")
         }
     }
     
@@ -76,14 +83,14 @@ class ParamLogger {
         nextflowOpts['Work Directory'] = workflow.workDir
 
         execOpts['Workflow Output'] = params.outDir
-        if (params.reporting) { execOpts['reporting'] = params.reporting }
+        if (params.reportingOnly) { execOpts['reportingOnly'] = params.reportingOnly }
         execOpts['maxMemory'] = params.maxMemory
         execOpts['maxCpus'] = params.maxCpus
         execOpts['splitFastq'] = params.splitFastq
         if (params.fastqSamplesheet) { execOpts['fastqSamplesheet'] = params.fastqSamplesheet }
         execOpts['runTssEnrich'] = params.runTssEnrich
-        execOpts['matrixGenerationCH'] = params.matrixGenerationCH
-        execOpts['matrixGenerationCG'] = params.matrixGenerationCG
+        execOpts['windowMatrixOut'] = params.windowMatrixOut
+        execOpts['calculateCH'] = params.calculateCH
         execOpts['trimFastq'] = params.trimFastq
 
         if (params.fastqDir) {
@@ -94,7 +101,7 @@ class ParamLogger {
             inputOpts['bam1Dir'] = params.bam1Dir
             inputOpts['bam2Dir'] = params.bam2Dir
         }
-        if (params.reporting) { inputOpts['resultDir'] = params.resultDir }
+        if (params.reportingOnly || params.startPostAlignment) { inputOpts['previousOutDir'] = params.previousOutDir; inputOpts['merged'] = params.merged }
         inputOpts['samples'] = params.samples
         inputOpts['genome'] = params.genome
         inputOpts['libStructure'] = params.libStructure

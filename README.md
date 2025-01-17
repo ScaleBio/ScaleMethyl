@@ -52,7 +52,7 @@ Note that this test run is merely a quick and easy way to verify that the pipeli
 
 
 ### Nextflow
-See the [Nextflow command-line documentation](https://www.nextflow.io/docs/) for the options to run `nextflow` on different systems; including HPC clusters and cloud compute.
+See the [Nextflow command-line documentation](https://www.nextflow.io/docs/latest/index.html) for the options to run `nextflow` on different systems; including HPC clusters and cloud compute.
 
 ## Configuration
 ### Specifying Analysis Parameters
@@ -75,6 +75,13 @@ The Nextflow workflow can automatically use pre-built docker containers with all
 Nextflow itself supports running using [AWS](https://www.nextflow.io/docs/latest/aws.html), [Azure](https://www.nextflow.io/docs/latest/azure.html) and [Google Cloud](https://www.nextflow.io/docs/latest/google.html). 
 
 In addition [Nextflow tower](https://tower.nf) offers another simple way to manage and execute nextflow workflows in Amazon AWS.
+
+## Alternate Start Points
+Alternate start points allow users to start the analysis without starting from the beginning. These options are included below. For these start points to be available, the pipeline needs to be completed to certain points in previous runs. 
+
+### Matrix Generation
+Command line argument `--startPostAlignment true` or `startPostAlignment: true` in the runParams yaml file will rerun the pipeline directly after the 'Dedup and Extract' module and before 'Matrix Generation'. This will enable the user to include additional outputs to their run or change the binning for downstream cell clustering without needing to re-align. Additional output options can be included such as allc and amethyst outputs. The 'DEDUP_AND_EXTRACT:Extract' and 'METRICS_AND_REPORTING:GenerateMetrics' processes need to completely finish before this option is available for subsequent runs.
+
 
 # Versions and Updates
 See the [change log](changelog.md)
