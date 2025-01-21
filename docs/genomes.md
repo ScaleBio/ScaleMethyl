@@ -7,8 +7,10 @@ Field |  Description | Required? | Example
 :-- | -- | -- | --
 name | The name of the species / genome-version | Required | human 
 bsbolt_index | Path to the BSBolt index directory | Required | `/PATH/TO/bsbolt.ref` 
-genomeTiles | Path to binned genome sorted bed file for CG matrix | Required | `/PATH/TO/50kbp.bed` 
-genomeTilesCh | Path to binned genome sorted bed file for CH matrix | Required | `/PATH/TO/100kbp.bed` 
+genomeWindowBlackList | Path to a genome window black list (bed) | Optional | `/PATH/TO/blacklist.bed`
+genomeTiles | Path to binned genome sorted bed file for CG matrix (overrides windowTileSizeCG) | Optional | `/PATH/TO/50kbp.bed` 
+chrom.sizes | Path to chrom.sizes file. Speeds up window computation if present, is computed otherwise | Optional | `/PATH/TO/chrom.sizes`
+genomeTilesCh | Path to binned genome sorted bed file for CH matrix (overrides windowTileSizeCH) | Optional | `/PATH/TO/100kbp.bed` 
 bsbolt_chrs | Path to tsv chromosome labels (mito, filter) to filter from deduplicated BAM | Required | `/PATH/TO/bsbolt_chrs.tsv` 
 tssWin | Path to bed sorted 200nt windows centered at TSS | Required | `/PATH/TO/tss.bed` 
 backgroundWin | Path to bed sorted 200nt windows centered at TSS -1kb upstream | Required | `/PATH/TO/background.bed` 
