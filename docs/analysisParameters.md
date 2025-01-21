@@ -72,8 +72,8 @@ If you resume the run with a samples.csv that you have added the threshold to (b
 
 If you wish to rerun only the report with a more stringent threshold and can filter your matrices for downstream analysis, there is a reporting only entry point to the workflow. 
 
-* `reporting : true` option to only run reporting from a `resultDir` for a completed run. 
-* `resultDir` would be the outDir of your original run. 
+* `reportingOnly : true` option to only run reporting from a `previousOutDir` for a completed run. 
+* `previousOutDir` would be the outDir of your original run. 
 * `outDir` is your new outDir for the new reports. It is recommended that you do not use the same folder as the original run, as it will overwrite all original results. 
 * `samples.csv` must be provided with the additional threshold column, see [samples.csv](samplesCsv.md) for details.
 

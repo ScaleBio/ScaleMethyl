@@ -18,6 +18,9 @@ output:
 	tuple val(sample), path("${sample}.fragment_hist.tsv"), emit: fragHist
 	tuple val(sample), env(TOTAL_READS), emit: totalReads
 publishDir { outDir }, pattern: "${sample}.dedup.bam", enabled: params.bamDedupOut
+publishDir { outDir }, pattern: "${sample}.dedup_stats.tsv"
+publishDir { outDir }, pattern: "${sample}.cell_stats.tsv"
+publishDir { outDir }, pattern: "${sample}.fragment_hist.tsv"
 tag "$sample"
 label 'process_medium'
 script:
@@ -33,17 +36,23 @@ script:
 
 // Extract methylation stats from deduplicated bam files
 process Extract {
+    
 input: 
 	tuple val(sample), path(bam), val(totalReads)
 output: 
 	tuple val(sample), path("${sample}.met_CG.parquet"), emit: metCG
-	tuple val(sample), path("${sample}.met_CH.parquet"), emit: metCH
+	tuple val(sample), path("${sample}.met_CH.parquet"), emit: metCH, optional: true
 	tuple val(sample), path("${sample}.cellInfo.txt"), emit: report
 tag "$sample"
+publishDir file(params.outDir) / "matrix_generation", pattern: "${sample}.met_*.parquet", mode: 'copy', enabled: params.parquetOut
+publishDir {outDir}, pattern: "${sample}.cellInfo.txt", mode: 'copy'
 script:
+    outDir = file(params.outDir) / "alignments" / "dedup" / sample
     nprocs = Math.max(task.cpus - 1, 1)
+    contexts = (params.calculateCH) ? "CG,CH" : "CG"
+
 """
-	met_extract.py $bam --sample $sample --threshold ${params.chReadsThreshold / 100} --subprocesses $nprocs
+	met_extract.py $bam --sample $sample --threshold ${params.chReadsThreshold / 100} --subprocesses $nprocs --contexts $contexts
 """
 }
 

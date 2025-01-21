@@ -25,10 +25,44 @@ def loadGenome(json) {
 	genome = loadJson(json)
 	genome.bsbolt_index = expandPath(genome.bsbolt_index, baseDir)
 	genome.bsbolt_chrs = expandPath(genome.bsbolt_chrs, baseDir)
-	genome.genomeTiles = expandPath(genome.genomeTiles, baseDir)
-	genome.genomeTilesCh = expandPath(genome.genomeTilesCh, baseDir)
+	if(genome.genomeTileBlackList) {
+		genome.genomeTileBlackList = expandPath(genome.genomeTileBlackList, baseDir)
+	}
+	if(genome.genomeTiles) {
+		if(params.windowTileSizeCG) {
+			log.warn("genomeTiles and windowTileSizeCG are both set. Ignoring windowTileSizeCG.")
+			params.windowTileSizeCG = null
+		}
+		genome.genomeTiles = expandPath(genome.genomeTiles, baseDir)
+	}
+	if(!genome.genomeTiles && !params.windowTileSizeCG) {
+		throwError("No genomeTiles in genome.json or windowTileSizeCG in config set")
+	}
+	if(genome.genomeTilesCH) {
+		if(params.windowTileSizeCH) {
+			log.warn("genomeTilesCH and windowTileSizeCH are both set. Ignoring windowTileSizeCH.")
+			params.windowTileSizeCH = null
+		}
+		genome.genomeTilesCh = expandPath(genome.genomeTilesCh, baseDir)
+	}
+	if(!genome.genomeTilesCH && !params.windowTileSizeCH) {
+		throwError("No genomeTilesCH in genome.json or windowTileSizeCH in config set")
+	}
+	if(genome.chromSizes) {
+		genome.chromSizes = expandPath(genome.chromSizes, baseDir)
+	}
 	genome.tssWin = expandPath(genome.tssWin, baseDir)
 	genome.backgroundWin = expandPath(genome.backgroundWin, baseDir)
+	return genome
+}
+
+def updateGenomeBedFileCG(genome, bedFilePath) {
+	genome.genomeTiles = bedFilePath
+	return genome
+}
+
+def updateGenomeBedFileCH(genome, bedFilePath) {
+	genome.genomeTilesCh = bedFilePath
 	return genome
 }
 
@@ -44,18 +78,101 @@ def toIntOr0(str) {
 process RegularizeSamplesCsv {
 input: 
 	path("samples.in.csv")
+	val(libStructName)
+	path(libStructDir)
 output: 
 	path("samples.csv")
 publishDir file(params.outDir), mode: 'copy'
 label 'process_single'
 cache 'deep'
 script:
+	libStruct = "${libStructDir}/${libStructName}"
 	opts=""
 	if (params.splitFastq) {
 		opts += "--splitFastq"
 	}
+	if (params.merged) {
+		opts += " --merge"
+	}
 """
-	regularize_samples_csv.py samples.in.csv $opts > samples.csv
+	regularize_samples_csv.py samples.in.csv --libraryStruct $libStruct $opts > samples.csv
+"""
+}
+
+process CreateWindowsBedCG {
+input:
+	path(chromSizes)
+	path(genomeWindowBlackList)
+	val(minimumWindowSize)
+output:
+	path("genome_tiles_CG.bed")
+publishDir file(params.outDir) / "samples" / "genome_bin_matrix", mode: 'copy'
+script:
+if(genomeWindowBlackList)
+"""
+		create_windows_bed.py --genomeTiles $params.windowTileSizeCG --chromSizes $chromSizes --output genome_tiles_CG.bed --minimumWindowSize $minimumWindowSize --blacklist $genomeWindowBlackList
+"""
+else
+"""
+		create_windows_bed.py --genomeTiles $params.windowTileSizeCG --chromSizes $chromSizes --output genome_tiles_CG.bed --minimumWindowSize $minimumWindowSize
+"""
+}
+
+process CreateWindowsBedCH {
+input:
+	path(chromSizes)
+	path(genomeWindowBlackList)
+	val(minimumWindowSize)
+output:
+	path("genome_tiles_CH.bed")
+publishDir file(params.outDir) / "samples" / "genome_bin_matrix", mode: 'copy'
+script:
+if(genomeWindowBlackList)
+"""
+		create_windows_bed.py --genomeTiles $params.windowTileSizeCH --chromSizes $chromSizes --output genome_tiles_CH.bed --minimumWindowSize $minimumWindowSize --blacklist $genomeWindowBlackList
+"""
+else
+"""
+		create_windows_bed.py --genomeTiles $params.windowTileSizeCH --chromSizes $chromSizes --output genome_tiles_CH.bed --minimumWindowSize $minimumWindowSize
+"""
+}
+
+process CreateChromSizes {
+input:
+	path(fastaFile)
+output:
+	path("chrom.sizes")
+publishDir file(params.outDir) / "samples" / "genome_bin_matrix", mode: 'copy'
+// Using bsbolt index for now, change this if we use a new aligner
+script:
+"""
+	create_chrom_sizes.py --fastaFile $fastaFile --output chrom.sizes
+"""
+}
+
+process CombineBarcodeCSVs {
+input:
+	tuple val(sample), val(threshold), path(cellInfoFiles, stageAs:'cellInfo?'), path(cellStatFiles, stageAs:'cellStat?'), path(tssEnrichFiles, stageAs:'tssEnrich?')
+output:
+	tuple val(sample), val(threshold), path("${sample}.cellInfo.csv"), path("${sample}.cell_stats.csv"), path("${sample}.tss_enrich.csv")
+publishDir file(params.outDir) / "metrics_for_reporting", mode: 'copy'
+script:
+"""
+	combine_barcode_csv.py --inFiles cellInfo* --outFile ${sample}.cellInfo.csv
+	combine_barcode_csv.py --inFiles cellStat* --outFile ${sample}.cell_stats.csv --header
+	combine_barcode_csv.py --inFiles tssEnrich* --outFile ${sample}.tss_enrich.csv --header
+"""
+}
+
+process CombineSummaryCSVs {
+input:
+	tuple val(sample), val(threshold), path(dedupFiles, stageAs:'dedupFile?'), path(fragFiles, stageAs:'fragFile?')
+output:
+	tuple val(sample), val(threshold), path("${sample}.dedup_stats.csv"), path("${sample}.fragment_hist.csv")
+publishDir file(params.outDir) / "metrics_for_reporting", mode: 'copy'
+script:
+"""
+	combine_summary_csv.py --inDedupFiles dedupFile* --outDedupFile ${sample}.dedup_stats.csv --inFragFiles fragFile* --outFragFile ${sample}.fragment_hist.csv
 """
 }
 
@@ -78,16 +195,54 @@ script:
 """
 }
 
+
 workflow {
 	// Initialize ParamLogger class in lib/ParamLogger.groovy
 	// Pretty prints select parameters for a run and initializes a logger
 	ParamLogger.initialise(workflow, params, log)
 	libJson = expandPath(params.libStructure, file("${projectDir}/references/"))
-	RegularizeSamplesCsv(file(params.samples))
+	RegularizeSamplesCsv(file(params.samples, checkIfExists:true),libJson.getName(),libJson.getParent())
 	samples = RegularizeSamplesCsv.out.splitCsv(header:true, strip:true)
+	
 	genome = loadGenome(file(params.genome))
-	// If it is not a reporting only run
-	if (!params.reporting) {
+	// chrom.size only needs to be created if a windowTileSize is set
+	if(params.windowTileSizeCG || params.windowTileSizeCH) {
+		// Uses bsbolt reference fasta to create a chrom.sizes file for matrix generation
+		faFile = genome.bsbolt_index.resolve("BSB_ref.fa")
+		chromSizeFile = null
+		if(genome.chromSizes) {
+			chromSizeFile = genome.chromSizes
+		}
+		else {
+			chromSizeFile = CreateChromSizes(faFile)
+		}
+		
+		if(params.windowTileSizeCG) {
+			if(genome.genomeWindowBlackList) {
+				bedFilePathCG = CreateWindowsBedCG(chromSizeFile,genome.genomeWindowBlackList,params.minimumWindowSize)
+			} else {
+				bedFilePathCG = CreateWindowsBedCG(chromSizeFile,[],params.minimumWindowSize)
+			}
+			
+			genome = updateGenomeBedFileCG(genome, bedFilePathCG)
+		}
+		if(params.windowTileSizeCH && params.calculateCH) {
+			if(genome.genomeWindowBlackList) {
+				bedFilePathCH = CreateWindowsBedCH(chromSizeFile,genome.genomeWindowBlackList,params.minimumWindowSize)
+			} else {
+				bedFilePathCH = CreateWindowsBedCH(chromSizeFile,[],params.minimumWindowSize)
+			}
+			genome = updateGenomeBedFileCH(genome, bedFilePathCH)
+		}
+	}
+	
+	allCells = null
+	metCG = null
+	metCH = null
+
+	// If Matrix Checkpointing is enabled or reporting only is checked, start from matrix generation
+	if (!params.startPostAlignment && !params.reportingOnly) {
+
 		// Indicates starting from bam files
 		if (params.bam1Dir != null && params.bam2Dir != null) {
 			// Module that merges per TN5 bam files in two bsbolt output directories
@@ -99,7 +254,7 @@ workflow {
 		else {
 			// Module that deals with input reads demux, qc, trimming and mapping
 			INPUT_READS(samples, RegularizeSamplesCsv.out, libJson, params.fastqDir, params.runFolder, genome)
-			dedupBamInput = INPUT_READS.out.alignedBam						
+			dedupBamInput = INPUT_READS.out.alignedBam
 			// Trimming and mapping stats only exist when starting from fastq files or a runfolder
 			trimmingAndMapping = true
 		}
@@ -154,32 +309,75 @@ workflow {
 		// Generate metrics from merged stats and use those metrics for generating html reports
 		METRICS_AND_REPORTING(mergedReportStats, MergeStats.out.fragmentHist, MergeStats.out.dedupStats, trimmingAndMappingStats, demuxMetrics, null, DEDUP_AND_EXTRACT.out.dedupBam, libJson, trimmingAndMapping, false, genome, samples)
 
-		// Generate binned matrices
-		MATRIX_GENERATION(METRICS_AND_REPORTING.out.allCells, DEDUP_AND_EXTRACT.out.metCG, DEDUP_AND_EXTRACT.out.metCH, genome)
-    }
-	// run only reporting
-	else {
-		// Since trimming and mapping stats might or might not be in the output directory, to avoid
-		// confusion and reduce dependencies we assume that there aren't trimming and mapping stats
-		// Users can refer to original report for trimming and mapping stats
-		metricInput = samples.map{tuple(
-			it.sample,
-			file("${params.resultDir}/metrics_for_reporting/${it.sample}.cell_stats.csv", checkIfExists:true),
-			file("${params.resultDir}/metrics_for_reporting/${it.sample}.cellInfo.csv", checkIfExists:true),
-			toIntOr0(it.threshold)
-		)}
-		fragHist = samples.map{tuple(
-			it.sample,
-			file("${params.resultDir}/metrics_for_reporting/${it.sample}.fragment_hist.csv", checkIfExists:true)
-		)}
-		dedupStats = samples.map{tuple(
-			it.sample,
-			file("${params.resultDir}/metrics_for_reporting/${it.sample}.dedup_stats.csv", checkIfExists:true)
-		)}
-		tssEnrich = samples.map{tuple(
-			it.sample,
-			file("${params.resultDir}/metrics_for_reporting/${it.sample}.tss_enrich.csv")
-		)}
+		allCells = METRICS_AND_REPORTING.out.allCells.groupTuple()
+		metCG = DEDUP_AND_EXTRACT.out.metCG.groupTuple()
+		metCH = DEDUP_AND_EXTRACT.out.metCH.groupTuple()
+	} else {
+		// Reporting code before post-alignment code
+		// Set up variables for reporting
+		metricInput=null
+		fragHist=null
+		dedupStats=null
+		tssEnrich=null
+		// if merged, use samplesheet to merge metrics
+		if(params.merged) {
+			// allCellInfos: [sample name, threshold, cellInfo file, cell_stats file, tss_enrich file]
+			allCellInfos = samples
+				.map{tuple(it.sample,toIntOr0(it.threshold), file("${it.resultDir}/metrics_for_reporting/${it.sample}.cellInfo.csv", checkIfExists:true),file("${it.resultDir}/metrics_for_reporting/${it.sample}.cell_stats.csv", checkIfExists:true),file("${it.resultDir}/metrics_for_reporting/${it.sample}.tss_enrich.csv"))}
+				.groupTuple()
+				.map{tuple(it[0], it[1][0], it[2], it[3], it[4])}
+			// Combine cellInfo, cell_stats, and tss_enrich files
+			CombineBarcodeCSVs(allCellInfos)
+
+			// allDedupStats: [sample name, threshold, dedup_stats file, fragment_hist file]
+			allDedupStats = samples
+				.map{tuple(it.sample,toIntOr0(it.threshold), file("${it.resultDir}/metrics_for_reporting/${it.sample}.dedup_stats.csv", checkIfExists:true), file("${it.resultDir}/metrics_for_reporting/${it.sample}.fragment_hist.csv", checkIfExists:true))}
+				.groupTuple()
+				.map{tuple(it[0], it[1][0], it[2], it[3])}
+			// Combine dedup_stats and fragment_hist files
+			CombineSummaryCSVs(allDedupStats)
+
+			// Set reporting variables to combination function outputs
+			metricInput=CombineBarcodeCSVs.out.map{tuple(it[0],it[3],it[2],it[1])}
+			fragHist=CombineSummaryCSVs.out.map{tuple(it[0],it[3])}
+			dedupStats=CombineSummaryCSVs.out.map{tuple(it[0],it[2])}
+			tssEnrich=CombineBarcodeCSVs.out.map{tuple(it[0],it[4])}
+
+		// Else, use the output directory to merge metrics
+		} else {
+			// Set output directory to the previous output directory if it exists, otherwise use the current output directory
+			outDir = file(params.outDir)
+			if(params.previousOutDir != null) {
+				outDir = file(params.previousOutDir)
+			}
+
+			// metricInput: [sample name, cell_stats file, cellInfo file, threshold]
+			metricInput = samples.map{tuple(
+				it.sample,
+				file("${outDir}/metrics_for_reporting/${it.sample}.cell_stats.csv", checkIfExists:true),
+				file("${outDir}/metrics_for_reporting/${it.sample}.cellInfo.csv", checkIfExists:true),
+				toIntOr0(it.threshold)
+			)}
+
+			// fragHist: [sample name, fragment_hist file]
+			fragHist = samples.map{tuple(
+				it.sample,
+				file("${outDir}/metrics_for_reporting/${it.sample}.fragment_hist.csv", checkIfExists:true)
+			)}
+
+			// dedupStats: [sample name, dedup_stats file]
+			dedupStats = samples.map{tuple(
+				it.sample,
+				file("${outDir}/metrics_for_reporting/${it.sample}.dedup_stats.csv", checkIfExists:true)
+			)}
+
+			// tssEnrich: [sample name, tss_enrich file]
+			tssEnrich = samples.map{tuple(
+				it.sample,
+				file("${outDir}/metrics_for_reporting/${it.sample}.tss_enrich.csv")
+			)}
+		}
+		
 		// For the case where original analysis was run with runTssEnrich = false
 		tssEnrich = tssEnrich.map {
 			if (it[1].exists()) {
@@ -189,6 +387,7 @@ workflow {
 				return tuple(it[0], [])
 			}
 		}
+
 		// Since bcParser metrics might or might not be in the output directory, to avoid confusion
 		// and reduce dependencies we assume that there aren't bc_parser metrics
 		// Users can refer to original report for bc_parser metrics
@@ -198,8 +397,85 @@ workflow {
 			it.libName,
 			[]
 		)}.unique()
+
 		// Generate metrics from merged stats and use those metrics for generating html reports
 		METRICS_AND_REPORTING(metricInput, fragHist, dedupStats, null, demuxMetrics, tssEnrich, null, libJson, false, true, genome, samples)
+
+		// If Matrix Checkpointing is enabled, start from matrix generation
+		if(params.startPostAlignment) {
+			// if using previous output directory, use the previous allCells.csv and met_ files
+			if(params.previousOutDir != null) {
+				// allCells: [sample name, list of allCells files]
+				allCells = samples
+									.map{tuple(it.sample, file("${params.previousOutDir}/samples/${it.sample}.allCells.csv", checkIfExists:true))}
+									.groupTuple()
+				// contexts: [CG, CH]
+				contexts = ""
+				if(params.calculateCH) {
+					contexts = Channel.of('CG', 'CH')
+				} else {
+					contexts = Channel.of('CG')
+				}
+
+				// subsamples: [sample name, list of parquet files, context]
+									// [sample name, result directory, allCells file]
+				subsamples = samples.map{tuple(it.sample, params.previousOutDir, file("${params.previousOutDir}/samples/${it.sample}.allCells.csv", checkIfExists:true).splitCsv(header:true, strip:true))}
+									// [sample name, result directory, wells from allCells]
+									.map{tuple(it[0], it[1], it[2].tgmt_well.unique())}
+									// [sample name, result directory, well list]
+									.flatMap{sampleName, dir, wells -> wells.collect{well -> tuple(sampleName,dir,well)}}
+									// [sample name.well, parquet file path beginning]
+									.map{tuple("${it[0]}.${it[2]}","${it[1]}/matrix_generation/${it[0]}.${it[2]}.met_")}
+									// [sample name.well, parquet file path with context]
+									.combine(contexts)
+									// [sample name.well, parquet file path, context]
+									.map{tuple(it[0], file("${it[1]}${it[2]}.parquet"), it[2])}
+									// Remove non-existent files
+									.filter{it[1].exists()}
+									// Group by sample name and context [sample name.well, list of parquet files, context]
+									.groupTuple(by:[0,2])
+
+				// branch subsamples based on context for matrix generation
+				subsamples.branch {
+					metCG: it[2]=='CG'
+					metCH: it[2]=='CH'
+				}.set { mets }
+				metCG = mets.metCG.map{tuple(it[0],it[1])}
+				metCH = mets.metCH.map{tuple(it[0],it[1])}
+			
+			// if merged option is selected, use the sample sheet to find the files to merge
+			} else if(params.merged) {
+				// allCells: [sample name, list of allCells files]
+				allCells = samples.map{tuple(it.sample, file("${it.resultDir}/samples/${it.sample}.allCells.csv", checkIfExists:true))}
+								  .groupTuple()
+
+				// contexts: [CG, CH]
+				contexts = Channel.of('CG', 'CH')
+
+				// subsamples: [sample name, list of parquet files, context]
+				subsamples = samples.map{tuple(it.sample, it.resultDir, file("${it.resultDir}/samples/${it.sample}.allCells.csv", checkIfExists:true).splitCsv(header:true, strip:true))}
+									.map{tuple(it[0], it[1], it[2].tgmt_well.unique())}
+									.flatMap{sampleName, dir, wells -> wells.collect{well -> tuple(sampleName,dir,well)}}
+									.map{tuple("${it[0]}.${it[2]}","${it[1]}/matrix_generation/${it[0]}.${it[2]}.met_")}
+									.combine(contexts)
+									.map{tuple(it[0], file("${it[1]}${it[2]}.parquet"), it[2])}
+									.filter{it[1].exists()}
+									.groupTuple(by:[0,2])
+
+				// branch subsamples based on context for matrix generation					
+				subsamples.branch {
+					metCG: it[2]=='CG'
+					metCH: it[2]=='CH'
+				}.set { mets }
+				metCG = mets.metCG.map{tuple(it[0],it[1])}
+				metCH = mets.metCH.map{tuple(it[0],it[1])}
+			}
+		}
+	}
+	
+	if(!params.reportingOnly) {
+		// Generate binned matrices
+		MATRIX_GENERATION(allCells,metCG,metCH, genome)
 	}
 }
 
