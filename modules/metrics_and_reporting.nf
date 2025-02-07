@@ -75,6 +75,7 @@ script:
     libStruct = "$references/$libStructJsonFileName"
     outDir = file(params.outDir) / "report" / "sample_reports"
 	"""
+	export DATAPANE_CDN_BASE="https://d3j2ibc7el7s1k.cloudfront.net/v0.17.0"
 	generate_sample_report.py --sample_name ${sample} --out_dir ${sample} --all_cells allCells.csv --library_structure_json $libStruct \
 	--fragment_hist ${fragmentHist} --tss_enrich ${tssEnrich} --dedup_stats ${dedupStats} $opts --library_name $libraryName --sample_barcodes "$sampleBarcodes" --workflow_version $workflowVersion
 	"""
@@ -101,6 +102,7 @@ label 'process_single'
 script:
     libStruct = "$references/$libStructJsonFileName"
 	"""
+	export DATAPANE_CDN_BASE="https://d3j2ibc7el7s1k.cloudfront.net/v0.17.0"
 	export TMPDIR=\$(mktemp -p `pwd` -d)
 	combined_sample_report.py --library_name ${libName} --out_dir ${libName} --all_cells ${allCells} \
 	--passing_cell_stats ${passingCellStats} --library_structure_json $libStruct --workflow_version $workflowVersion

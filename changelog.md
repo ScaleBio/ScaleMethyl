@@ -1,4 +1,7 @@
-# Version 1.2.0
+# Version 1.2
+## 1.2.1
+* Fix remote URL in sample and library QC reports (HTML)
+## 1.2.0
 * Analysis workflow support for individual plates & subsequent plate merging (docs/mergeMultipleAlignments.md)
 * Window-size input for matrix gen, rather than file-format upload (including blacklist)
 * Post-alignment checkpoint - allows for quick re-run of matrix gen
