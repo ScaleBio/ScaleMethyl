@@ -48,7 +48,7 @@ def bam_intersect(id: str, bam_file: Path, tss_bed: Path, bg_bed: Path, cells: P
     # write output csv file
     cols = ["cell_id", "tss_enrich", "tss_counts", "background_counts"]
     with open(f"{id}.tss_enrich.csv", mode="w") as output_file:
-        csv_writer = csv.writer(output_file, delimiter="\t")
+        csv_writer = csv.writer(output_file, delimiter=",")
         csv_writer.writerow(cols)
         for k, count in bg_counts.items():
             tss_count = tss_counts[k]

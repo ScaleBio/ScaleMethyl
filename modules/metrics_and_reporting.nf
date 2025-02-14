@@ -76,6 +76,7 @@ script:
     outDir = file(params.outDir) / "report" / "sample_reports"
 	"""
 	export DATAPANE_CDN_BASE="https://d3j2ibc7el7s1k.cloudfront.net/v0.17.0"
+	export TMPDIR=\$(mktemp -p `pwd` -d)
 	generate_sample_report.py --sample_name ${sample} --out_dir ${sample} --all_cells allCells.csv --library_structure_json $libStruct \
 	--fragment_hist ${fragmentHist} --tss_enrich ${tssEnrich} --dedup_stats ${dedupStats} $opts --library_name $libraryName --sample_barcodes "$sampleBarcodes" --workflow_version $workflowVersion
 	"""

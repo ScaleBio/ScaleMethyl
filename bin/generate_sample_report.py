@@ -113,14 +113,15 @@ def main():
             for tss_enrich in args.tss_enrich:
                 # Some files may be empty, so we need to check for that
                 if os.stat(tss_enrich).st_size > 1:
-                    tss_enrich_dfs.append(pd.read_csv(tss_enrich, sep="\t"))
+                    tss_enrich_dfs.append(pd.read_csv(tss_enrich))
             if len(tss_enrich_dfs) > 0:
                 concat_tss_enrich_df = pd.concat(
                     tss_enrich_dfs, ignore_index=True, axis=0
                 )
-                concat_tss_enrich_df = concat_tss_enrich_df.drop(
-                    columns=["tss_counts", "background_counts"]
-                )
+                if "tss_counts" in concat_tss_enrich_df.columns:
+                    concat_tss_enrich_df = concat_tss_enrich_df.drop(
+                        columns=["tss_counts", "background_counts"]
+                    )
                 concat_tss_enrich_df.to_csv(
                     f"{args.sample_name}.tss_enrich.csv", index=False
                 )
@@ -136,7 +137,7 @@ def main():
         print(
             f"Number of Inf values in tss enrichment column: {all_cells['tss_enrich'].isin([np.inf]).sum()}"
         )
-    met_passing = all_cells[all_cells["pass"] == "pass"].reset_index(drop=True)
+    
     all_cells.to_csv(f"{args.sample_name}.allCells.csv", index=False)
 
     shutil.copy(args.fragment_hist, f"{args.sample_name}/csv/{args.fragment_hist.name}")
@@ -144,7 +145,7 @@ def main():
     # Sort to keep plotting order deterministic
     # Helps ensure same samples are given same colors every time this script is run
     all_cells = all_cells.sort_values(by="sample")
-    met_passing = met_passing.sort_values(by="sample")
+    met_passing = all_cells[all_cells["pass"] == "pass"].reset_index(drop=True)
 
     dp_list_read_qc = []
     dp_list_methyl_qc = []

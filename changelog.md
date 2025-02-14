@@ -1,4 +1,7 @@
 # Version 1.2
+## 1.2.2
+* Fix to sample merging (especially when calculating CH contexts)
+* Fix to sample reports
 ## 1.2.1
 * Fix remote URL in sample and library QC reports (HTML)
 ## 1.2.0
