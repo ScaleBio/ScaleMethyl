@@ -1,4 +1,6 @@
 # Version 1.2
+## 1.2.3
+* Fix to Amethyst output (CG and CH context was being output switched)
 ## 1.2.2
 * Fix to sample merging (especially when calculating CH contexts)
 * Fix to sample reports

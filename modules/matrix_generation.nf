@@ -235,8 +235,8 @@ main:
     if (params.amethystOut) {
         // join ch and cg channels for CreateAmethyst
         if(params.calculateCH) {
-            chPass
-                .join(cgPass, by: [0, 1, 2], failOnDuplicate: true, failOnMismatch: true)
+            cgPass
+                .join(chPass, by: [0, 1, 2], failOnDuplicate: true, failOnMismatch: true)
                 .dump(tag: 'metPass')
                 .set { metPass }
             CreateAmethyst(metPass)
