@@ -2,7 +2,7 @@
 ## 1.2.3
 * Fix to Amethyst output (CG and CH context was being output switched) 
     -Introduced in v1.2.0 and affecting runs with --amethystOut True
-    -Can use --postAlignmentCheckpoint True and --previousOutDir options to fix without re-running the entire workflow
+    -Can use --startPostAlignment True and --previousOutDir options to fix without re-running the entire workflow
 ## 1.2.2
 * Fix to sample merging (especially when calculating CH contexts)
 * Fix to sample reports
