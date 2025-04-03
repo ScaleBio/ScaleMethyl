@@ -4,12 +4,12 @@ The workflow can be started from a sequencer runFolder (bcl) [`--runFolder`]. In
 Alternatively, it is also possible to generate fastq files upstream, for example when the ScaleMethyl library is multiplexed together with other libraries during sequencing at a core facility. In that case we recommend using [bcl-convert](https://support.illumina.com/sequencing/sequencing_software/bcl-convert.html) version 3.9 or later.
 
 ## samplesheet.csv
-An example samplesheet for bcl-convert [ScaleMethyl_small-kit_samplesheet.csv](examples/samplesheets/ScaleMethyl_small-kit_samplesheet.csv) with typical options is included. This generates one set of fastq files (R1, R2) for each well of the PCR (final) plates. 
+An example samplesheet for bcl-convert [ScaleMethyl_small-kit_samplesheet_i5-FWD.csv](examples/samplesheets/ScaleMethyl_small-kit_samplesheet_i5-FWD.csv) with typical options is included. This generates one set of fastq files (R1, R2) for each well of the PCR (final) plates. 
 **Note** that this is not a split per sample loaded into the Tagmentation (first) plate.
 
-The [reverse complement](examples/samplesheets/ScaleMethyl_small-kit_samplesheet_revComp.csv) version of the samplesheet.csv can be used with [instruments](https://knowledge.illumina.com/software/general/software-general-reference_material-list/000001800) that require index2 to be specified in the opposite orientation.
+The [reverse complement](examples/samplesheets/ScaleMethyl_small-kit_samplesheet_i5-REV.csv) version of the samplesheet.csv can be used with [instruments](https://knowledge.illumina.com/software/general/software-general-reference_material-list/000001800) that require index2 to be specified in the opposite orientation.
 
-The equivalent for the large kit (8 plates): [ScaleMethyl_large-kit_samplesheet.csv](examples/samplesheets/ScaleMethyl_large-kit_samplesheet.csv)
+The equivalent for the large kit (8 plates): [ScaleMethyl_large-kit_samplesheet_i5-FWD.csv](examples/samplesheets/ScaleMethyl_large-kit_samplesheet_i5-FWD.csv)
 
 ## Index reads
 For ScaleBio Methylation libraries the tagmentation barcodes are included in read 2, while the MET i5 and i7 PCR barcodes are in index reads 1 and 2. Since the index reads are needed for demultiplexing and barcode correction, we need to tell `bcl-convert` to generate index read fastqs using the `samplesheet.csv` setting: \
