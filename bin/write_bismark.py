@@ -12,7 +12,7 @@ from pathlib import Path
 from reporting.reporting import Utils
 
 
-def write_to_pipe(met_calls: list[str], bc: str, context: str):
+def write_to_pipe(met_calls: list[str], bc: str):
     """
     Send duckdb query to named pipe
     """
@@ -49,7 +49,7 @@ def write_bismark(met_calls: list, barcodes: list, context: str):
     for bc in barcodes:
         # send query to thread which will write to named pipe (FIFO) that is input to bgzip
         query_thread = threading.Thread(
-            target=write_to_pipe, args=(met_calls, bc, context)
+            target=write_to_pipe, args=(met_calls, bc)
         )
         query_thread.start()
         with open(outdir / f"{bc}.{context}.cov.gz", "wb") as f:
@@ -72,11 +72,17 @@ def main():
     parser.add_argument(
         "--sample", required=True, help="Sample name with well coordinate"
     )
+    parser.add_argument(
+        "--context",
+        type=str,
+        choices=["CG", "CH"],
+        help="Context of methylation calls",
+    )
     args = parser.parse_args()
     write_bismark(
         met_calls=args.met_calls,
         barcodes=Utils.get_passing_cells(args.all_cells, args.sample),
-        context="CG" if ".met_CG" in args.met_calls[0].suffixes else "CH",
+        context=args.context,
     )
 
 

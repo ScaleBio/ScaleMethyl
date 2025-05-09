@@ -30,14 +30,14 @@ script:
 process MtxCH {
 input:
 	path(tiles) // Non overlapping genome bins
-	tuple val(sample), val(sample_with_well_coordinate), path(allCells, stageAs:'allCells?'), path(metCG, stageAs:'metCG?')
+	tuple val(sample), val(sample_with_well_coordinate), path(allCells, stageAs:'allCells?'), path(metCG, stageAs:'metCH?')
 output:
 	tuple val(sample_with_well_coordinate), path("${sample_with_well_coordinate}.CH.mtx"), path("${sample_with_well_coordinate}.barcodes.tsv"), path("${sample_with_well_coordinate}.CH.features.tsv"), emit: mtx, optional: true
 tag "$sample_with_well_coordinate"
 label 'process_medium'
 script:
 """
-	create_mtx.py --bedfile $tiles --met_calls metCG* --all_cells allCells* --sample $sample_with_well_coordinate --CH
+	create_mtx.py --bedfile $tiles --met_calls metCH* --all_cells allCells* --sample $sample_with_well_coordinate --CH
 """
 }
 
@@ -100,7 +100,7 @@ script:
 
 process CreateBismark {
 input:
-	tuple val(sample), val(sample_with_well_coordinate), path(allCells, stageAs:'allCells?'), path(met, stageAs:'met?')
+	tuple val(sample), val(sample_with_well_coordinate), path(allCells, stageAs:'allCells?'), path(met, stageAs:'met?'), val(context)
 output:
 	tuple val(sample), path("{CG,CH}/*.cov.gz"), optional: true
 tag "$sample_with_well_coordinate"
@@ -109,7 +109,7 @@ label 'process_medium_memory'
 script:
     outDir = file(params.outDir) / "samples" / "methylation_coverage" / "cov" / sample.tokenize('.')[0]
 """
-	write_bismark.py --met_calls met* --all_cells allCells* --sample $sample_with_well_coordinate
+	write_bismark.py --met_calls met* --all_cells allCells* --sample $sample_with_well_coordinate --context $context
 """
 }
 
@@ -225,10 +225,16 @@ main:
         }
     }
     if (params.covOut) {
+        cgPass_context=cgPass.map { sample, sample_with_well_coordinate, allCells, metCG ->
+            tuple sample, sample_with_well_coordinate, allCells, metCG, "CG"
+        }
         if(params.calculateCH) {
-            CreateBismark(cgPass.concat(chPass))
+            chPass_context=chPass.map { sample, sample_with_well_coordinate, allCells, metCH ->
+                tuple sample, sample_with_well_coordinate, allCells, metCH, "CH"
+            }
+            CreateBismark(cgPass_context.concat(chPass_context))
         } else {
-            CreateBismark(cgPass)
+            CreateBismark(cgPass_context)
         }
     }
     

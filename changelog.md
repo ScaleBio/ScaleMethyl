@@ -1,4 +1,8 @@
 # Version 1.2
+## 1.2.4
+* Fix to .cov file output. CG and CH files were being generated on top of eachother.
+    - Introduced in v1.2.0 and affected runs with --covOut True
+    - Can use --startPostAlignment True and --previousOutDir options to fix without re-running the entire workflow
 ## 1.2.3
 * Fix to Amethyst output (CG and CH context was being output switched) 
     - Introduced in v1.2.0 and affecting runs with --amethystOut True
