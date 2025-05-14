@@ -22,18 +22,14 @@ def accept_args() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Generate combined sample report",
     )
-    parser.add_argument(
-        "--library_name", type=str, required=True, help="Identifier for this library"
-    )
+    parser.add_argument("--library_name", type=str, required=True, help="Identifier for this library")
     parser.add_argument(
         "--out_dir",
         default=".",
         type=Path,
         help="Path to output directory for plots and report",
     )
-    parser.add_argument(
-        "--all_cells", nargs="+", type=Path, help="Path to complexity stats files"
-    )
+    parser.add_argument("--all_cells", nargs="+", type=Path, help="Path to complexity stats files")
     parser.add_argument(
         "--passing_cell_stats",
         nargs="+",
@@ -52,6 +48,11 @@ def accept_args() -> argparse.Namespace:
         type=Path,
         help="Path to library structure json file",
     )
+    parser.add_argument(
+        "--csv_folder",
+        type=Path,
+        help="Path to folder containing csv files",
+    )
     parser.add_argument("--workflow_version", type=str, help="Version of the workflow")
     args = parser.parse_args()
     return args
@@ -68,9 +69,7 @@ def main():
     dp_list_read_qc = []
     dp_page = []
 
-    all_cells = [
-        pd.read_csv(all_cell, dtype={"tgmt_well": "str"}) for all_cell in args.all_cells
-    ]
+    all_cells = [pd.read_csv(all_cell, dtype={"tgmt_well": "str"}) for all_cell in args.all_cells]
     library_all_cells = pd.concat(all_cells, ignore_index=True, axis=0)
     print(
         f"Number of rows in combined allCells dataframe: {len(library_all_cells.index)}",
@@ -84,47 +83,31 @@ def main():
         }
     )
 
+    passing_cell_summary_stat = [pd.read_csv(methyl_stat) for methyl_stat in args.passing_cell_stats]
     passing_cell_summary_stat = [
-        pd.read_csv(methyl_stat) for methyl_stat in args.passing_cell_stats
-    ]
-    passing_cell_summary_stat = [
-        df.rename(
-            {"Value": df[df["Metric"] == "sample_name"]["Value"].to_list()[0]}, axis=1
-        )
+        df.rename({"Value": df[df["Metric"] == "sample_name"]["Value"].to_list()[0]}, axis=1)
         for df in passing_cell_summary_stat
     ]
-    passing_cell_summary_stat = [
-        df.set_index("Metric") for df in passing_cell_summary_stat
-    ]
+    passing_cell_summary_stat = [df.set_index("Metric") for df in passing_cell_summary_stat]
     library_passing_cell_summary_stats = pd.concat(passing_cell_summary_stat, axis=1)
     library_passing_cell_summary_stats.reset_index(inplace=True)
 
     library_all_cells = library_all_cells.sort_values(by="sample")
 
-    datapane_obj = BuildDatapane(
-        f"library.{args.library_name}", write_dir, library_all_cells, True
-    )
+    datapane_obj = BuildDatapane(f"library.{args.library_name}", write_dir, library_all_cells, True)
     dp_list_read_qc.append(datapane_obj.create_total_complexity_plot())
     dp_list_read_qc.append(datapane_obj.build_knee_plot())
-    dp_list_read_qc.append(
-        datapane_obj.build_sample_information_table_combined(sample_information)
-    )
+    dp_list_read_qc.append(datapane_obj.build_sample_information_table_combined(sample_information))
     if args.bc_parser_metrics.is_file():
-        dp_list_read_qc.append(
-            datapane_obj.build_bc_parser_stats(args.bc_parser_metrics)
-        )
+        dp_list_read_qc.append(datapane_obj.build_bc_parser_stats(args.bc_parser_metrics))
     else:
         print("bc_parser metrics not available", file=sys.stderr)
         dp_list_read_qc.append(datapane_obj.build_bc_parser_stats(False))
     dp_list_read_qc.append(datapane_obj.build_cell_table())
     dp_list_read_qc.append(datapane_obj.build_total_and_unique_reads_box())
     dp_list_read_qc.append(datapane_obj.build_saturation_box())
-    datapane_obj.build_combined_passing_met_stats_table(
-        library_passing_cell_summary_stats
-    )
-    dp_page.append(
-        dp.Page(dp.Group(blocks=dp_list_read_qc, columns=2), title="Read QC")
-    )
+
+    dp_page.append(dp.Page(dp.Group(blocks=dp_list_read_qc, columns=2), title="Read QC"))
 
     library_methyl_df = library_all_cells[library_all_cells["pass"] == "pass"]
     library_methyl_df = library_methyl_df.sort_values(by="sample")
@@ -133,11 +116,7 @@ def main():
         dp_list_methyl_qc.append(datapane_obj.build_cg_cell_methyl_percent_box())
         dp_list_methyl_qc.append(datapane_obj.build_ch_cell_methyl_percent_box())
         dp_list_methyl_qc.append(datapane_obj.build_cell_covered_box())
-        dp_page.append(
-            dp.Page(
-                dp.Group(blocks=dp_list_methyl_qc, columns=2), title="Methylation QC"
-            )
-        )
+        dp_page.append(dp.Page(dp.Group(blocks=dp_list_methyl_qc, columns=2), title="Methylation QC"))
 
     dp_list_barcodes = []
 
@@ -152,9 +131,8 @@ def main():
         PlatePlotBuilder.build_combined_plate_plot(
             library_methyl_df,
             barcode_name_list,
+            args.csv_folder,
             args.library_name,
-            write_dir,
-            args.library_structure_json,
         )
     )
     dp_page.append(
@@ -164,7 +142,7 @@ def main():
         )
     )
 
-    dp.save_report(dp_page, path=f"{write_dir}/library.{args.library_name}.report.html")
+    dp.save_report(dp_page, path=f"{write_dir}/{args.library_name}.report.html")
 
 
 if __name__ == "__main__":

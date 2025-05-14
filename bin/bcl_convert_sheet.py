@@ -183,9 +183,7 @@ def load_run(runInfo: Path) -> Dict[str, ReadInfo]:
     return reads
 
 
-def load_libraries(
-    samplesCsv: Path, namedIndexSeqs: Dict[str, List[str]]
-) -> List[Library]:
+def load_libraries(samplesCsv: Path, namedIndexSeqs: Dict[str, List[str]]) -> List[Library]:
     """
     Load information about library demux (Illumina / fastq samples) from samples.csv
 
@@ -204,9 +202,7 @@ def load_libraries(
             for n in name:
                 if not (n.isalnum() or n in "-."):
                     raise ValueError(
-                        f"sample name should only contain"
-                        f" [a-z],[A-Z],[0-9], dash (-) or "
-                        f"dot (.): {name}"
+                        f"sample name should only contain" f" [a-z],[A-Z],[0-9], dash (-) or " f"dot (.): {name}"
                     )
             lib = Library(name=name)
 
@@ -247,9 +243,7 @@ def load_libraries(
     return list(libs.values())
 
 
-def assign_index(
-    libraries: List[Library], libDef: Dict, reads: Dict[str, ReadInfo]
-) -> IndexInfo:
+def assign_index(libraries: List[Library], libDef: Dict, reads: Dict[str, ReadInfo]) -> IndexInfo:
     """
     Finalize index sequences for each library (fastq sample)
 
@@ -354,9 +348,7 @@ def main(samplesCsv: Path, libJson: Path, runInfo: Path, splitFastq: bool, setti
                         splitSamples.append(subLib)
             libs = splitSamples
     else:
-        raise Exception(
-            "Valid value of split_on not provided. Please provide either index1 or index2"
-        )
+        raise Exception("Valid value of split_on not provided. Please provide either index1 or index2")
 
     # If an index read is not used for library / fastq demux,
     # we need to define it as a 'UMI' in OverrideCycles
@@ -365,9 +357,7 @@ def main(samplesCsv: Path, libJson: Path, runInfo: Path, splitFastq: bool, setti
         if not readInfo.isIndex:
             overrideCycles.append(f"Y{readInfo.bp}")
         else:
-            if (indexInfo.index1Used and readName == "I1") or (
-                indexInfo.index2Used and readName == "I2"
-            ):
+            if (indexInfo.index1Used and readName == "I1") or (indexInfo.index2Used and readName == "I2"):
                 overrideCycles.append(f"I{readInfo.bp}")
             else:
                 overrideCycles.append(f"U{readInfo.bp}")
@@ -415,18 +405,14 @@ def main(samplesCsv: Path, libJson: Path, runInfo: Path, splitFastq: bool, setti
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Create bcl_convert samplesheet.csv " "from workflow samples.csv"
-    )
+    parser = argparse.ArgumentParser(description="Create bcl_convert samplesheet.csv " "from workflow samples.csv")
     parser.add_argument(
         "samples",
         metavar="SAMPLES.csv",
         type=Path,
         help="CSV with samples and index sequences for ScaleMethyl workflow run",
     )
-    parser.add_argument(
-        "libDef", metavar="LIBRARY.json", type=Path, help="Library structure definition"
-    )
+    parser.add_argument("libDef", metavar="LIBRARY.json", type=Path, help="Library structure definition")
     parser.add_argument(
         "runinfo",
         metavar="RUNINFO.xml",

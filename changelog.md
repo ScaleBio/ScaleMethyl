@@ -1,15 +1,18 @@
 # Version 1.2
+## 1.2.5
+* Development version for 1.3 (development branch only)
+    - Includes BWA-meth aligner and reporting improvements
 ## 1.2.4
 * Fix to .cov file output. CG and CH files were being generated on top of eachother.
     - Introduced in v1.2.0 and affected runs with --covOut True
     - Can use --startPostAlignment True and --previousOutDir options to fix without re-running the entire workflow
-## 1.2.3
+## 1.2.3 
 * Fix to Amethyst output (CG and CH context was being output switched) 
     - Introduced in v1.2.0 and affecting runs with --amethystOut True
     - Can use --startPostAlignment True and --previousOutDir options to fix without re-running the entire workflow
 ## 1.2.2
 * Fix to sample merging (especially when calculating CH contexts)
-* Fix to sample reports
+* Using local tempdir to avoid permission errors in reporting
 ## 1.2.1
 * Fix remote URL in sample and library QC reports (HTML)
 ## 1.2.0

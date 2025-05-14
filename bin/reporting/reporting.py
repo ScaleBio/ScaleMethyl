@@ -12,6 +12,9 @@ import seaborn as sns
 from pathlib import Path
 from matplotlib import pyplot as plt
 import re
+import gzip
+import scipy.io
+import scanpy as sc
 
 # Suppress SettingWithCopyWarning
 pd.options.mode.chained_assignment = None
@@ -33,6 +36,220 @@ CELL_STAT_COL_NAMES = [
 ]
 
 
+class GenerateMetrics:
+    # builds the combined passing met stats table csv
+    def build_combined_passing_met_stats_table_csv(out_dir, sample, combined_passing_met: pd.DataFrame):
+        for idx, col_name in enumerate(CELL_STAT_COL_NAMES):
+            combined_passing_met.iloc[idx, combined_passing_met.columns.get_loc("Metric")] = col_name
+        if "median_tss_enrich" in combined_passing_met["Metric"].values:
+            combined_passing_met.iloc[
+                combined_passing_met["Metric"].values == "median_tss_enrich",
+                combined_passing_met.columns.get_loc("Metric"),
+            ] = "Median TSS Enrichment"
+        combined_passing_met = combined_passing_met.iloc[combined_passing_met["Metric"].values != "sample_name",]
+        combined_passing_met.to_csv(f"{out_dir}/{sample}.combinedPassingCellStats.csv", index=False)
+
+    # Update well plate plot matrix with values from df
+    def update_well_plate(df, well_plate, value_col):
+        for _, row in df.iterrows():
+            match = re.match(r"([A-Z])(\d{1,2})([A-Z])(\d{1,2})", row["combo"])
+            if match:
+                letter_1, number_1, letter_2, number_2 = match.groups()
+                combo_1 = letter_1 + number_1
+                combo_2 = letter_2 + number_2
+                well_plate.at[combo_2, combo_1] = row[value_col]
+
+    # builds the combined plate plot csvs
+    def build_combined_plate_plot_csv(
+        passing_cells: pd.DataFrame,
+        indexing_type_list: list,
+        lib_name: str,
+        write_dir: Path,
+        lib_json: Path,
+    ):
+        barcode_entry_cols = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(lib_json, indexing_type_list[0])
+        barcode_entry_index = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(lib_json, indexing_type_list[1])
+        sequence_path_cols = lib_json.parent / barcode_entry_cols["sequences"]
+        sequence_path_index = lib_json.parent / barcode_entry_index["sequences"]
+        max_letter_cols, max_number_cols = WhitelistAndLibJsonHelper.get_max_number_and_letter(
+            sequence_path_cols, False
+        )
+        max_letter_index, max_number_index = WhitelistAndLibJsonHelper.get_max_number_and_letter(
+            sequence_path_index, False
+        )
+        all_combos_cols = WhitelistAndLibJsonHelper.get_all_number_letter_combinations(
+            max_letter_cols, max_number_cols, True
+        )
+        all_combos_index = WhitelistAndLibJsonHelper.get_all_number_letter_combinations(
+            max_letter_index, max_number_index, False
+        )
+
+        well_plate_total_reads = pd.DataFrame(0, index=all_combos_index, columns=all_combos_cols)
+        well_plate_total_cells = well_plate_total_reads.copy()
+        well_plate_unique_reads = well_plate_total_reads.copy()
+
+        df_by_plate = passing_cells[
+            [
+                "total_reads",
+                "unique_reads",
+                f"{indexing_type_list[1]}_well",
+                f"{indexing_type_list[0]}_well",
+            ]
+        ]
+        df_by_plate["combo"] = (
+            df_by_plate[f"{indexing_type_list[0]}_well"] + df_by_plate[f"{indexing_type_list[1]}_well"]
+        )
+        num_cells_dict = df_by_plate["combo"].value_counts().to_dict()
+        df_unique_reads = df_by_plate.groupby("combo", as_index=False)["unique_reads"].median()
+
+        GenerateMetrics.update_well_plate(df_unique_reads, well_plate_unique_reads, "unique_reads")
+        GenerateMetrics.update_well_plate(
+            pd.DataFrame.from_dict(num_cells_dict, orient="index", columns=["count"])
+            .reset_index()
+            .rename(columns={"index": "combo"}),
+            well_plate_total_cells,
+            "count",
+        )
+
+        well_plate_total_cells.to_csv(
+            write_dir / "csv" / f"{lib_name}.total_passing_cells_{indexing_type_list[1]}_{indexing_type_list[0]}.csv"
+        )
+        well_plate_unique_reads.to_csv(
+            write_dir / "csv" / f"{lib_name}.median_unique_reads_{indexing_type_list[1]}_{indexing_type_list[0]}.csv"
+        )
+
+    # builds the plate plot csvs
+    def build_plate_plot_csv(all_cells: pd.DataFrame, lib_json: Path, write_dir: Path, sample: str):
+        sample_barcode = WhitelistAndLibJsonHelper.get_sample_barcode_name(lib_json)
+        barcode_entry = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(lib_json, sample_barcode)
+        sequence_path = lib_json.parent / barcode_entry["sequences"]
+        max_letter, max_number = WhitelistAndLibJsonHelper.get_max_number_and_letter(sequence_path, True)
+        for i in range(1, WhitelistAndLibJsonHelper.get_number_of_plates(sequence_path) + 1):
+            well_plate_total_reads = pd.DataFrame(
+                0,
+                columns=range(1, max_number + 1),
+                index=[chr(j) for j in range(65, ord(max_letter) + 1)],
+            )
+            well_plate_median_unique_reads = well_plate_total_reads.copy()
+            well_plate_total_cells = well_plate_total_reads.copy()
+            passing_cells = all_cells[all_cells["pass"] == "pass"]
+            df_by_plate = passing_cells[passing_cells[f"{sample_barcode}_well"].str[0] == str(i)]
+            df_by_plate = df_by_plate[["unique_reads", f"{sample_barcode}_well"]]
+            df_by_plate[f"{sample_barcode}_well"] = df_by_plate[f"{sample_barcode}_well"].str[1:]
+            num_cells_dict = df_by_plate[f"{sample_barcode}_well"].value_counts().to_dict()
+            df_unique_reads = df_by_plate.groupby(f"{sample_barcode}_well", as_index=False)["unique_reads"].median()
+
+            for _, row in df_unique_reads.iterrows():
+                letter = row[f"{sample_barcode}_well"][0]
+                number = int(row[f"{sample_barcode}_well"][1:])
+                well_plate_median_unique_reads.at[letter, number] = row["unique_reads"]
+
+            for well in num_cells_dict:
+                letter = well[0]
+                number = int(well[1:])
+                well_plate_total_cells.at[letter, number] = num_cells_dict[well]
+
+            well_plate_total_cells.to_csv(
+                write_dir / "csv" / f"{sample}.total_passing_cells_{sample_barcode}_plate_{i}.csv"
+            )
+            well_plate_median_unique_reads.to_csv(
+                write_dir / "csv" / f"{sample}.median_unique_reads_{sample_barcode}_plate_{i}.csv"
+            )
+
+    # builds the summary stats csv
+    def build_summary_stats_csv(
+        out_dir, sample, mapping_stats: pd.DataFrame | bool, trimming_stats: pd.DataFrame | bool
+    ):
+        total_read_value = np.nan
+        reads_passing_trimming_value = np.nan
+        reads_passing_mapping_value = np.nan
+        if not (isinstance(mapping_stats, bool) and isinstance(trimming_stats, bool)):
+            total_read_value = int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0])
+            reads_passing_trimming_value = trimming_stats[trimming_stats["Metric"] == "passing_reads"][
+                "Value"
+            ].to_list()[0]
+            reads_passing_mapping_value = mapping_stats[mapping_stats["Metric"] == "mapped_reads"]["Value"].to_list()[0]
+
+        summary_stats = pd.DataFrame.from_dict(
+            {
+                "Metric": [
+                    "total_reads",
+                    "reads_passing_trimming",
+                    "reads_passing_mapping",
+                ],
+                "Value": [
+                    total_read_value,
+                    reads_passing_trimming_value,
+                    reads_passing_mapping_value,
+                ],
+            },
+            dtype="object",
+        )
+        summary_stats.to_csv(f"{out_dir}/csv/{sample}.summaryStats.csv", index=False)
+
+    # builds the passing cell stats csv
+    def construct_passing_cell_stats_csv(all_cells, out_dir, sample):
+        metric_name = [
+            "number_passing_cells",
+            "total_reads",
+            "total_passing_reads",
+            "median_passing_reads_per_passing_cell",
+            "total_unique_reads",
+            "median_unique_reads_per_passing_cell",
+            "percent_reads_in_passing_cells",
+            "saturation",
+            "median_mito_pct",
+            "CGcov_median",
+            "CHcov_median",
+            "CG_mC_Pct_median",
+            "CH_mC_Pct_median",
+            "sample_name",
+        ]
+        met_df = all_cells[all_cells["pass"] == "pass"].reset_index(drop=True)
+        metric_values = []
+        ch_is_nan = pd.isna(met_df["ch_cov"].median())
+        passing_cells = all_cells[all_cells["pass"] == "pass"]
+        metric_values = [
+            len(met_df),
+            all_cells["total_reads"].sum(),
+            all_cells["passing_reads"].sum(),
+            round(passing_cells["passing_reads"].median()),
+            all_cells["unique_reads"].sum(),
+            round(passing_cells["unique_reads"].median()),
+            str(
+                round(
+                    100 * all_cells[all_cells["pass"] == "pass"]["total_reads"].sum() / all_cells["total_reads"].sum(),
+                    2,
+                )
+            )
+            + "%",
+            str(
+                round(
+                    1 - (all_cells["unique_reads"].sum() / all_cells["total_reads"].sum()),
+                    3,
+                )
+            ),
+            str(round(met_df["mito_reads"].median() * 100, 2)) + "%",
+            round(met_df["cg_cov"].median()),
+            round(met_df["ch_cov"].median()) if not ch_is_nan else np.nan,
+            str(round(met_df["mcg_pct"].median(), 2)) + "%",
+            (str(round(met_df["mch_pct"].median(), 2)) + "%" if not ch_is_nan else np.nan),
+            sample,
+        ]
+        if "tss_enrich" in met_df.columns:
+            metric_name.append("median_tss_enrich")
+            metric_values.append(str(round(met_df["tss_enrich"].median(), 2)))
+
+        if met_df.empty:
+            met_stats = pd.DataFrame.from_dict(
+                {"Metric": metric_name, "Value": [np.nan] * len(metric_name)},
+                dtype="object",
+            )
+        else:
+            met_stats = pd.DataFrame.from_dict({"Metric": metric_name, "Value": metric_values}, dtype="object")
+        met_stats.to_csv(f"{out_dir}/csv/{sample}.passingCellSummaryStats.csv", index=False)
+
+
 class Utils:
     def get_passing_cells(all_cells: list, sample: str) -> list[str]:
         """
@@ -48,10 +265,7 @@ class Utils:
                 csv_reader = csv.DictReader(csv_file)
                 for row in csv_reader:
                     if "." in sample:
-                        if (
-                            row["pass"] == "pass"
-                            and row["tgmt_well"] == sample.split(".")[1]
-                        ):
+                        if row["pass"] == "pass" and row["tgmt_well"] == sample.split(".")[1]:
                             passing_cells.append(row["cell_id"])
                     else:
                         if row["pass"] == "pass" and row["sample"] == sample:
@@ -83,12 +297,8 @@ class WhitelistAndLibJsonHelper:
         return pd.read_csv(barcodes, sep="\t", names=["barcode", "well"])
 
     @staticmethod
-    def get_barcode_whitelist_dataframe_from_libjson(
-        library_structure_json: Path, name: str
-    ) -> pd.DataFrame:
-        entry = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(
-            library_structure_json, name
-        )
+    def get_barcode_whitelist_dataframe_from_libjson(library_structure_json: Path, name: str) -> pd.DataFrame:
+        entry = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(library_structure_json, name)
         return pd.read_csv(entry["sequences"], sep="\t", names=["barcode", "well"])
 
     @staticmethod
@@ -98,9 +308,7 @@ class WhitelistAndLibJsonHelper:
         return [entry["name"] for entry in lib_json["barcodes"]]
 
     @staticmethod
-    def get_all_number_letter_combinations(
-        max_letter: str, max_number: int, order_by_numbers: bool
-    ) -> list:
+    def get_all_number_letter_combinations(max_letter: str, max_number: int, order_by_numbers: bool) -> list:
 
         all_combos = []
         if order_by_numbers:
@@ -146,94 +354,20 @@ class PlatePlotBuilder:
     def build_combined_plate_plot(
         passing_cells: pd.DataFrame,
         indexing_type_list: list,
+        csv_folder: Path,
         lib_name: str,
-        write_dir: Path,
-        lib_json: Path,
     ) -> list:
-        barcode_entry_i7 = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(
-            lib_json, indexing_type_list[0]
-        )
-        barcode_entry_i5 = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(
-            lib_json, indexing_type_list[1]
-        )
-        sequence_path_i7 = lib_json.parent / barcode_entry_i7["sequences"]
-        sequence_path_i5 = lib_json.parent / barcode_entry_i5["sequences"]
-        max_letter_i7, max_number_i7 = (
-            WhitelistAndLibJsonHelper.get_max_number_and_letter(sequence_path_i7, False)
-        )
-        max_letter_i5, max_number_i5 = (
-            WhitelistAndLibJsonHelper.get_max_number_and_letter(sequence_path_i5, False)
-        )
-        all_combos_i7 = WhitelistAndLibJsonHelper.get_all_number_letter_combinations(
-            max_letter_i7, max_number_i7, True
-        )
-        all_combos_i5 = WhitelistAndLibJsonHelper.get_all_number_letter_combinations(
-            max_letter_i5, max_number_i5, False
-        )
 
-        well_plate_total_reads = pd.DataFrame(
-            0, index=all_combos_i5, columns=all_combos_i7
-        )
-        well_plate_total_cells = well_plate_total_reads.copy()
-        well_plate_unique_reads = well_plate_total_reads.copy()
-
-        df_by_plate = passing_cells[
-            [
-                "total_reads",
-                "unique_reads",
-                f"{indexing_type_list[1]}_well",
-                f"{indexing_type_list[0]}_well",
-            ]
-        ]
-        df_by_plate["combo"] = (
-            df_by_plate[f"{indexing_type_list[0]}_well"]
-            + df_by_plate[f"{indexing_type_list[1]}_well"]
-        )
-        num_cells_dict = df_by_plate["combo"].value_counts().to_dict()
-        df_total_reads = df_by_plate.groupby("combo", as_index=False)[
-            "total_reads"
-        ].sum()
-        df_unique_reads = df_by_plate.groupby("combo", as_index=False)[
-            "unique_reads"
-        ].median()
         datapane_list = []
-
-        for _, row in df_total_reads.iterrows():
-            # Getting i5 and i7 well coordinates from the combo (i7i5), aka A01A02 -> A01, A02
-            match = re.match(r"([A-Z])(\d{1,2})([A-Z])(\d{1,2})", row["combo"])
-            if match:
-                letter_1, number_1, letter_2, number_2 = match.groups()
-                combo_1 = letter_1 + number_1
-                combo_2 = letter_2 + number_2
-                well_plate_total_reads.at[combo_2, combo_1] = row["total_reads"]
-
-        for _, row in df_unique_reads.iterrows():
-            # Getting i5 and i7 well coordinates from the combo, aka A01A02 -> A01, A02
-            match = re.match(r"([A-Z])(\d{1,2})([A-Z])(\d{1,2})", row["combo"])
-            if match:
-                letter_1, number_1, letter_2, number_2 = match.groups()
-                combo_1 = letter_1 + number_1
-                combo_2 = letter_2 + number_2
-                well_plate_unique_reads.at[combo_2, combo_1] = row["unique_reads"]
-
-        for well in num_cells_dict:
-            # Getting i5 and i7 well coordinates from the combo, aka A01A02 -> A01, A02
-            match = re.match(r"([A-Z])(\d{1,2})([A-Z])(\d{1,2})", well)
-            if match:
-                letter_1, number_1, letter_2, number_2 = match.groups()
-                combo_1 = letter_1 + number_1
-                combo_2 = letter_2 + number_2
-                well_plate_total_cells.at[combo_2, combo_1] = num_cells_dict[well]
-
-        well_plate_total_cells.to_csv(
-            write_dir
-            / "csv"
-            / f"{lib_name}.total_passing_cells_{indexing_type_list[1]}_{indexing_type_list[0]}.csv"
+        well_plate_total_cells = pd.read_csv(
+            f"{csv_folder}/{lib_name}.total_passing_cells_{indexing_type_list[1]}_{indexing_type_list[0]}.csv",
+            index_col=0,
+            header=0,
         )
-        well_plate_unique_reads.to_csv(
-            write_dir
-            / "csv"
-            / f"{lib_name}.median_unique_reads_{indexing_type_list[1]}_{indexing_type_list[0]}.csv"
+        well_plate_unique_reads = pd.read_csv(
+            f"{csv_folder}/{lib_name}.median_unique_reads_{indexing_type_list[1]}_{indexing_type_list[0]}.csv",
+            index_col=0,
+            header=0,
         )
         datapane_list.append(
             PlatePlotBuilder.plot_plate_plot(
@@ -252,64 +386,17 @@ class PlatePlotBuilder:
 
         return datapane_list
 
-    def build_plate_plot(
-        all_cells: pd.DataFrame, lib_json: Path, write_dir: Path, sample: str
-    ) -> list:
+    def build_plate_plot(all_cells: pd.DataFrame, lib_json: Path, csv_folder: Path, sample: str) -> list:
         datapane_list = []
         sample_barcode = WhitelistAndLibJsonHelper.get_sample_barcode_name(lib_json)
-        barcode_entry = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(
-            lib_json, sample_barcode
-        )
+        barcode_entry = WhitelistAndLibJsonHelper.get_barcode_entry_from_libjson(lib_json, sample_barcode)
         sequence_path = lib_json.parent / barcode_entry["sequences"]
-        max_letter, max_number = WhitelistAndLibJsonHelper.get_max_number_and_letter(
-            sequence_path, True
-        )
-        for i in range(
-            1, WhitelistAndLibJsonHelper.get_number_of_plates(sequence_path) + 1
-        ):
-            well_plate_total_reads = pd.DataFrame(
-                0,
-                columns=range(1, max_number + 1),
-                index=[chr(j) for j in range(65, ord(max_letter) + 1)],
+        for i in range(1, WhitelistAndLibJsonHelper.get_number_of_plates(sequence_path) + 1):
+            well_plate_total_cells = pd.read_csv(
+                f"{csv_folder}/{sample}.total_passing_cells_tgmt_plate_{str(i)}.csv", index_col=0, header=0
             )
-            well_plate_median_unique_reads = well_plate_total_reads.copy()
-            well_plate_total_cells = well_plate_total_reads.copy()
-            passing_cells = all_cells[all_cells["pass"] == "pass"]
-            df_by_plate = passing_cells[
-                passing_cells[f"{sample_barcode}_well"].str[0] == str(i)
-            ]
-            df_by_plate = df_by_plate[
-                ["unique_reads", f"{sample_barcode}_well"]
-            ]
-            df_by_plate[f"{sample_barcode}_well"] = df_by_plate[
-                f"{sample_barcode}_well"
-            ].str[1:]
-            num_cells_dict = (
-                df_by_plate[f"{sample_barcode}_well"].value_counts().to_dict()
-            )
-            df_unique_reads = df_by_plate.groupby(
-                f"{sample_barcode}_well", as_index=False
-            )["unique_reads"].median()
-
-            for _, row in df_unique_reads.iterrows():
-                letter = row[f"{sample_barcode}_well"][0]
-                number = int(row[f"{sample_barcode}_well"][1:])
-                well_plate_median_unique_reads.at[letter, number] = row["unique_reads"]
-
-            for well in num_cells_dict:
-                letter = well[0]
-                number = int(well[1:])
-                well_plate_total_cells.at[letter, number] = num_cells_dict[well]
-
-            well_plate_total_cells.to_csv(
-                write_dir
-                / "csv"
-                / f"{sample}.total_passing_cells_{sample_barcode}_plate_{i}.csv"
-            )
-            well_plate_median_unique_reads.to_csv(
-                write_dir
-                / "csv"
-                / f"{sample}.median_unique_reads_{sample_barcode}_plate_{i}.csv"
+            well_plate_median_unique_reads = pd.read_csv(
+                f"{csv_folder}/{sample}.median_unique_reads_tgmt_plate_{str(i)}.csv", index_col=0, header=0
             )
 
             datapane_list.append(
@@ -332,9 +419,7 @@ class PlatePlotBuilder:
     def plot_plate_plot(df: pd.DataFrame, title: str, threshold: int | bool):
         fig = plt.figure()
         if threshold:
-            norm = colors.SymLogNorm(
-                linthresh=threshold, vmin=0, vmax=max(threshold * 10, df.values.max())
-            )
+            norm = colors.SymLogNorm(linthresh=threshold, vmin=0, vmax=max(threshold * 10, df.values.max()))
             ax = sns.heatmap(
                 df,
                 linewidth=0.1,
@@ -345,9 +430,7 @@ class PlatePlotBuilder:
             )
         else:
             if (df == 0).all().all():
-                norm = colors.SymLogNorm(
-                    linthresh=1, vmin=0, vmax=max(1 * 10, df.values.max())
-                )
+                norm = colors.SymLogNorm(linthresh=1, vmin=0, vmax=max(1 * 10, df.values.max()))
                 ax = sns.heatmap(
                     df,
                     linewidth=0.1,
@@ -392,9 +475,7 @@ class DatapaneUtils:
             return val
 
     @staticmethod
-    def styleTable(
-        styler, title: str, hideColumnHeaders=False, boldColumn=None, numericCols=None
-    ):
+    def styleTable(styler, title: str, hideColumnHeaders=False, boldColumn=None, numericCols=None):
         if numericCols is not None:
             styler.format(DatapaneUtils.reformatIfInt, subset=numericCols)
 
@@ -429,18 +510,13 @@ class DatapaneUtils:
                 overwrite=False,
             )
 
-        styler.set_properties(
-            **{"border-color": "black", "border-style": "solid !important"}
-        )
+        styler.set_properties(**{"border-color": "black", "border-style": "solid !important"})
         return styler
 
     @staticmethod
     def define_color_map(df: pd.DataFrame) -> dict:
         color_palette = px.colors.qualitative.Dark24
-        return {
-            sample: color_palette[i]
-            for i, sample in enumerate(sorted(df["sample"].unique()))
-        }
+        return {sample: color_palette[i] for i, sample in enumerate(sorted(df["sample"].unique()))}
 
 
 class BuildDatapane:
@@ -465,6 +541,67 @@ class BuildDatapane:
         self.met_df = all_cells[all_cells["pass"] == "pass"].reset_index(drop=True)
         self.color_map = DatapaneUtils.define_color_map(all_cells)
 
+    def build_umap_plot(self, mtxFile: str, mtxBarcodes: list, writeDir: str) -> dp.Plot:
+
+        with gzip.open(mtxFile, "rb") as f:
+            matrix = scipy.io.mmread(f)
+        adata = sc.AnnData(matrix.transpose().todense())
+
+        variances = np.var(adata.X, axis=0)
+        top_20000_indices = np.argsort(variances)[-20000:]
+        adata = adata[:, top_20000_indices]
+        # Perform nearest neighbor clustering
+        # sqrt(indices/2) to get the number of comps
+        knn = min(100, adata.shape[0] - 1)
+        sc.pp.pca(adata, n_comps=knn)
+        sc.pp.neighbors(adata, n_neighbors=knn, n_pcs=10)
+        sc.tl.leiden(adata)
+
+        # Run UMAP
+        sc.tl.umap(adata)
+
+        # Save the clusters to a TSV file
+        mtx_barcodes_df = pd.read_csv(mtxBarcodes, header=None, names=["barcode"])
+        mtx_barcodes_df["cluster"] = adata.obs["leiden"].values
+        mtx_barcodes_df.to_csv(writeDir / "csv" / f"{self.sample}.report_clusters.tsv", sep="\t", index=False)
+
+        # Plot the UMAP embedding colored by cluster
+        fig = go.Figure()
+        unique_clusters = adata.obs["leiden"].unique().astype(int)
+        colors = []
+        # loop through colors if more than 24 clusters
+        # Tooltips still exist to find the difference
+        while len(unique_clusters) - len(colors) > 24:
+            colors.extend(px.colors.qualitative.Dark24)
+        colors.extend(px.colors.qualitative.Dark24[: len(unique_clusters)])
+        if len(unique_clusters) == 1:
+            color_map = {unique_clusters[0]: colors[0]}
+        else:
+            color_map = {cluster: colors[i] for i, cluster in enumerate(range(0, max(unique_clusters)))}
+        for cluster, color in color_map.items():
+            vals = adata.obs["leiden"].astype(int) == cluster
+            fig.add_trace(
+                go.Scatter(
+                    x=adata.obsm["X_umap"][vals, 0],
+                    y=adata.obsm["X_umap"][vals, 1],
+                    mode="markers",
+                    marker=dict(color=color),
+                    legendgroup=str(cluster),
+                    showlegend=True,
+                    name=f"Cluster {cluster}",
+                    hovertemplate=f"Cluster {cluster}",
+                )
+            )
+
+        fig.update_layout(
+            title="UMAP projection of the methylation data colored by cluster",
+            xaxis_title="UMAP1",
+            yaxis_title="UMAP2",
+            width=800,
+            height=800,
+        )
+        return dp.Plot(fig)
+
     def build_knee_plot(self) -> dp.Plot:
         figs = []
         for sample in self.all_cells["sample"].unique():
@@ -480,9 +617,7 @@ class BuildDatapane:
                 )
             )
         if not self.is_library_report:
-            threshold = self.all_cells[self.all_cells["pass"] == "pass"][
-                "unique_reads"
-            ].min()
+            threshold = self.all_cells[self.all_cells["pass"] == "pass"]["unique_reads"].min()
             figs.append(
                 go.Scatter(
                     x=[
@@ -544,8 +679,7 @@ class BuildDatapane:
     def create_total_complexity_plot(self):
         color_palette = px.colors.qualitative.Dark24
         passing_color_map = {
-            sample + "(passing)": color_palette[i]
-            for i, sample in enumerate(sorted(self.all_cells["sample"].unique()))
+            sample + "(passing)": color_palette[i] for i, sample in enumerate(sorted(self.all_cells["sample"].unique()))
         }
         failing_color_map = {
             sample + "(background)": color_palette[i]
@@ -553,9 +687,7 @@ class BuildDatapane:
         }
         passing_df = self.all_cells[self.all_cells["pass"] == "pass"]
         passing_df["sample"] = passing_df["sample"] + "(passing)"
-        passing_df["percent"] = round(
-            (passing_df["unique_reads"] / passing_df["total_reads"] * 100), 3
-        )
+        passing_df["percent"] = round((passing_df["unique_reads"] / passing_df["total_reads"] * 100), 3)
         passing_fig = px.scatter(
             passing_df,
             x="percent",
@@ -567,9 +699,7 @@ class BuildDatapane:
 
         failing_df = self.all_cells[self.all_cells["pass"] == "fail"]
         failing_df["sample"] = failing_df["sample"] + "(background)"
-        failing_df["percent"] = round(
-            (failing_df["unique_reads"] / failing_df["total_reads"] * 100), 3
-        )
+        failing_df["percent"] = round((failing_df["unique_reads"] / failing_df["total_reads"] * 100), 3)
         failing_fig = px.scatter(
             failing_df,
             x="percent",
@@ -615,9 +745,7 @@ class BuildDatapane:
             None,
         )
         # Start plot from 1 -> log(10)
-        fig.update_layout(
-            yaxis_range=[1, np.log10(self.all_cells["unique_reads"].max()) * 1.05]
-        )
+        fig.update_layout(yaxis_range=[1, np.log10(self.all_cells["unique_reads"].max()) * 1.05])
         fig.write_image(f"{self.out_dir}/png/{self.sample}.complexityTotal.png")
         return dp.Plot(fig)
 
@@ -625,9 +753,7 @@ class BuildDatapane:
         tmp_df = self.all_cells[self.all_cells["pass"] == "pass"].rename(
             columns={"total_reads": "Total", "unique_reads": "Unique"}
         )
-        IN = tmp_df[["sample", "Total", "Unique"]].melt(
-            id_vars=["sample"], var_name="variable", value_name="value"
-        )
+        IN = tmp_df[["sample", "Total", "Unique"]].melt(id_vars=["sample"], var_name="variable", value_name="value")
         fig = px.box(
             IN,
             x="variable",
@@ -647,20 +773,14 @@ class BuildDatapane:
             self.is_library_report,
             "category",
         )
-        fig.write_image(
-            f"{self.out_dir}/png/{self.sample}.cellTotalAndUniqueReadsBox.png"
-        )
+        fig.write_image(f"{self.out_dir}/png/{self.sample}.cellTotalAndUniqueReadsBox.png")
         return dp.Plot(fig)
 
     def build_saturation_box(self) -> dp.Plot:
         tmp_df = self.all_cells[self.all_cells["pass"] == "pass"]
-        tmp_df["saturation"] = round(
-            100 - (tmp_df["unique_reads"] / tmp_df["total_reads"] * 100), 3
-        )
+        tmp_df["saturation"] = round(100 - (tmp_df["unique_reads"] / tmp_df["total_reads"] * 100), 3)
         tmp_df = tmp_df.rename(columns={"saturation": ""})
-        IN = tmp_df[["sample", ""]].melt(
-            id_vars=["sample"], var_name="variable", value_name="value"
-        )
+        IN = tmp_df[["sample", ""]].melt(id_vars=["sample"], var_name="variable", value_name="value")
         fig = px.box(
             IN,
             x="variable",
@@ -687,37 +807,13 @@ class BuildDatapane:
     def build_cell_table(self) -> dp.Table:
         cells_called = {}
         for sample in self.all_cells["sample"].unique():
-            ncells = (
-                (self.all_cells["sample"] == sample)
-                & (self.all_cells["pass"] == "pass")
-            ).sum()
+            ncells = ((self.all_cells["sample"] == sample) & (self.all_cells["pass"] == "pass")).sum()
             cells_called[sample] = [f"{ncells:,}"]
         cells = pd.DataFrame(cells_called)
         cells = cells.T.reset_index()
         cells.columns = ["Sample", "Cells"]
         return DatapaneUtils.createTableIgnoreWarning(
-            cells[["Sample", "Cells"]].style.pipe(
-                DatapaneUtils.styleTable, title="Cells Called"
-            )
-        )
-
-    def build_combined_passing_met_stats_table(
-        self, combined_passing_met: pd.DataFrame
-    ) -> dp.Table:
-        for idx, col_name in enumerate(CELL_STAT_COL_NAMES):
-            combined_passing_met.iloc[
-                idx, combined_passing_met.columns.get_loc("Metric")
-            ] = col_name
-        if "median_tss_enrich" in combined_passing_met["Metric"].values:
-            combined_passing_met.iloc[
-                combined_passing_met["Metric"].values == "median_tss_enrich",
-                combined_passing_met.columns.get_loc("Metric"),
-            ] = "Median TSS Enrichment"
-        combined_passing_met = combined_passing_met.iloc[
-            combined_passing_met["Metric"].values != "sample_name",
-        ]
-        combined_passing_met.to_csv(
-            f"{self.out_dir}/{self.sample}.combinedPassingCellStats.csv", index=False
+            cells[["Sample", "Cells"]].style.pipe(DatapaneUtils.styleTable, title="Cells Called")
         )
 
     def build_bc_parser_stats(self, bcParserMetrics: Path | bool) -> dp.Table:
@@ -760,9 +856,7 @@ class BuildDatapane:
             )
         )
 
-    def build_sample_information_table(
-        self, sample_information: pd.DataFrame | bool
-    ) -> dp.Table:
+    def build_sample_information_table(self, sample_information: pd.DataFrame | bool) -> dp.Table:
         sample_info_df = pd.DataFrame()
         if not isinstance(sample_information, bool):
             sample_info_df = pd.DataFrame.from_dict(
@@ -807,9 +901,7 @@ class BuildDatapane:
             )
         )
 
-    def build_sample_information_table_combined(
-        self, sample_information: pd.DataFrame | bool
-    ) -> dp.Table:
+    def build_sample_information_table_combined(self, sample_information: pd.DataFrame | bool) -> dp.Table:
         sample_info_df = pd.DataFrame()
         if not isinstance(sample_information, bool):
             sample_info_df = pd.DataFrame.from_dict(
@@ -840,51 +932,6 @@ class BuildDatapane:
             )
         )
 
-    def build_summary_stats(
-        self, mapping_stats: pd.DataFrame | bool, trimming_stats: pd.DataFrame | bool
-    ):
-        if isinstance(mapping_stats, bool) and isinstance(trimming_stats, bool):
-            summary_stats = pd.DataFrame.from_dict(
-                {
-                    "Metric": [
-                        "total_reads",
-                        "reads_passing_trimming",
-                        "reads_passing_mapping",
-                    ],
-                    "Value": [np.nan, np.nan, np.nan],
-                },
-                dtype="object",
-            )
-        else:
-            summary_stats = pd.DataFrame.from_dict(
-                {
-                    "Metric": [
-                        "total_reads",
-                        "reads_passing_trimming",
-                        "reads_passing_mapping",
-                    ],
-                    "Value": [
-                        int(
-                            trimming_stats[trimming_stats["Metric"] == "total_reads"][
-                                "Value"
-                            ].to_list()[0]
-                        ),
-                        trimming_stats[trimming_stats["Metric"] == "passing_reads"][
-                            "Value"
-                        ].to_list()[0],
-                        (
-                            mapping_stats[mapping_stats["Metric"] == "mapped_reads"][
-                                "Value"
-                            ].to_list()[0]
-                        ),
-                    ],
-                },
-                dtype="object",
-            )
-        summary_stats.to_csv(
-            f"{self.out_dir}/csv/{self.sample}.summaryStats.csv", index=False
-        )
-
     def build_summary_stats_table(
         self, mapping_stats: pd.DataFrame | bool, trimming_stats: pd.DataFrame | bool
     ) -> dp.Table:
@@ -909,27 +956,12 @@ class BuildDatapane:
                 {
                     "Metric": metric_names,
                     "Value": [
-                        int(
-                            trimming_stats[trimming_stats["Metric"] == "total_reads"][
-                                "Value"
-                            ].to_list()[0]
-                        ),
-                        int(
-                            trimming_stats[trimming_stats["Metric"] == "total_reads"][
-                                "Value"
-                            ].to_list()[0]
-                        )
-                        / 2,
-                        trimming_stats[trimming_stats["Metric"] == "percent_passing"][
-                            "Value"
-                        ].to_list()[0],
+                        int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]),
+                        int(trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]) / 2,
+                        trimming_stats[trimming_stats["Metric"] == "percent_passing"]["Value"].to_list()[0],
                         (
-                            mapping_stats[mapping_stats["Metric"] == "mapped_reads"][
-                                "Value"
-                            ].to_list()[0]
-                            / trimming_stats[trimming_stats["Metric"] == "total_reads"][
-                                "Value"
-                            ].to_list()[0]
+                            mapping_stats[mapping_stats["Metric"] == "mapped_reads"]["Value"].to_list()[0]
+                            / trimming_stats[trimming_stats["Metric"] == "total_reads"]["Value"].to_list()[0]
                         ),
                         np.nan,
                         np.nan,
@@ -939,7 +971,9 @@ class BuildDatapane:
             )
         else:
             total_reads = f"{int(trimming_stats[trimming_stats['Metric'] == 'total_reads']['Value'].to_list()[0]):,}"
-            total_read_pairs = f"{int(trimming_stats[trimming_stats['Metric'] == 'total_reads']['Value'].to_list()[0]/2):,}"
+            total_read_pairs = (
+                f"{int(trimming_stats[trimming_stats['Metric'] == 'total_reads']['Value'].to_list()[0]/2):,}"
+            )
             trimmed_reads = f"{trimming_stats[trimming_stats['Metric'] == 'percent_passing']['Value'].to_list()[0] / 100:.1%}"  # Convert percentage to fraction
             mapped_reads = f"{(mapping_stats[mapping_stats['Metric'] == 'mapped_reads']['Value'].to_list()[0]/trimming_stats[trimming_stats['Metric'] == 'total_reads']['Value'].to_list()[0]):.1%}"
             summary_stats = pd.DataFrame.from_dict(
@@ -957,18 +991,10 @@ class BuildDatapane:
                 dtype="object",
             )
         summary_stats.iloc[0, summary_stats.columns.get_loc("Metric")] = "Total Reads"
-        summary_stats.iloc[1, summary_stats.columns.get_loc("Metric")] = (
-            "Total Read Pairs"
-        )
-        summary_stats.iloc[2, summary_stats.columns.get_loc("Metric")] = (
-            "Reads Passing Trimming"
-        )
-        summary_stats.iloc[3, summary_stats.columns.get_loc("Metric")] = (
-            "Reads Passing Mapping"
-        )
-        summary_stats.iloc[4, summary_stats.columns.get_loc("Metric")] = (
-            "Reads Per Passing Cell"
-        )
+        summary_stats.iloc[1, summary_stats.columns.get_loc("Metric")] = "Total Read Pairs"
+        summary_stats.iloc[2, summary_stats.columns.get_loc("Metric")] = "Reads Passing Trimming"
+        summary_stats.iloc[3, summary_stats.columns.get_loc("Metric")] = "Reads Passing Mapping"
+        summary_stats.iloc[4, summary_stats.columns.get_loc("Metric")] = "Reads Per Passing Cell"
         summary_stats.iloc[5, summary_stats.columns.get_loc("Metric")] = "Saturation"
         return DatapaneUtils.createTableIgnoreWarning(
             summary_stats[["Metric", "Value"]].style.pipe(
@@ -980,84 +1006,11 @@ class BuildDatapane:
             )
         )
 
-    def construct_passing_cell_stats(self) -> dp.Table:
-        metric_name = [
-            "number_passing_cells",
-            "total_reads",
-            "total_passing_reads",
-            "median_passing_reads_per_passing_cell",
-            "total_unique_reads",
-            "median_unique_reads_per_passing_cell",
-            "percent_reads_in_passing_cells",
-            "saturation",
-            "median_mito_pct",
-            "CGcov_median",
-            "CHcov_median",
-            "CG_mC_Pct_median",
-            "CH_mC_Pct_median",
-            "sample_name",
-        ]
-        metric_values = []
-        ch_is_nan = pd.isna(self.met_df["ch_cov"].median())
-        passing_cells = self.all_cells[self.all_cells["pass"] == "pass"]
-        metric_values = [
-            len(self.met_df),
-            self.all_cells["total_reads"].sum(),
-            self.all_cells["passing_reads"].sum(),
-            round(passing_cells["passing_reads"].median()),
-            self.all_cells["unique_reads"].sum(),
-            round(passing_cells["unique_reads"].median()),
-            str(
-                round(
-                    100
-                    * self.all_cells[self.all_cells["pass"] == "pass"][
-                        "total_reads"
-                    ].sum()
-                    / self.all_cells["total_reads"].sum(),
-                    2,
-                )
-            )
-            + "%",
-            str(
-                round(
-                    1
-                    - (
-                        self.all_cells["unique_reads"].sum()
-                        / self.all_cells["total_reads"].sum()
-                    ),
-                    3,
-                )
-            ),
-            str(round(self.met_df["mito_reads"].median() * 100, 2)) + "%",
-            round(self.met_df["cg_cov"].median()),
-            round(self.met_df["ch_cov"].median()) if not ch_is_nan else np.nan,
-            str(round(self.met_df["mcg_pct"].median(), 2)) + "%",
-            (
-                str(round(self.met_df["mch_pct"].median(), 2)) + "%"
-                if not ch_is_nan
-                else np.nan
-            ),
-            self.sample,
-        ]
-        if "tss_enrich" in self.met_df.columns:
-            metric_name.append("median_tss_enrich")
-            metric_values.append(str(round(self.met_df["tss_enrich"].median(), 2)))
+    def construct_passing_cell_stats(self, passingCellStats) -> dp.Table:
 
-        if self.met_df.empty:
-            met_stats = pd.DataFrame.from_dict(
-                {"Metric": metric_name, "Value": [np.nan] * len(metric_name)},
-                dtype="object",
-            )
-        else:
-            met_stats = pd.DataFrame.from_dict(
-                {"Metric": metric_name, "Value": metric_values}, dtype="object"
-            )
-        met_stats.to_csv(
-            f"{self.out_dir}/csv/{self.sample}.passingCellSummaryStats.csv", index=False
-        )
+        met_stats = pd.read_csv(passingCellStats, index_col=False)
         met_stats = met_stats[met_stats["Metric"] != "sample_name"]
         met_stats = met_stats.reset_index(drop=True)
-
         # Reformat metric names and numeric values for HTML report (vs. .csv)
         for idx, col_name in enumerate(CELL_STAT_COL_NAMES):
             met_stats.iloc[idx, met_stats.columns.get_loc("Metric")] = col_name
@@ -1074,6 +1027,7 @@ class BuildDatapane:
                 "Median CG's Covered per Cell",
                 "Median CH's Covered per Cell",
             ]:
+                met_stats.iloc[idx, 1] = int(met_stats.iloc[idx, 1])
                 met_stats.iloc[idx, 1] = f"{met_stats.iloc[idx, 1]:,}"
             if col_name in [
                 "Reads in Passing Cells",
@@ -1083,9 +1037,10 @@ class BuildDatapane:
                 met_stats.iloc[idx, 1] = f"{met_stats.iloc[idx, 1]:.1%}"
         if "tss_enrich" in self.met_df.columns:
             idx = len(CELL_STAT_COL_NAMES)
-            met_stats.iloc[idx, met_stats.columns.get_loc("Metric")] = (
-                "Median TSS Enrichment"
+            new_row = pd.DataFrame(
+                {"Metric": ["Median TSS Enrichment"], "Value": [f"{self.met_df['tss_enrich'].median():.2f}"]}
             )
+            met_stats = pd.concat([met_stats, new_row], ignore_index=True)
 
         return DatapaneUtils.createTableIgnoreWarning(
             met_stats[["Metric", "Value"]].style.pipe(
@@ -1099,9 +1054,7 @@ class BuildDatapane:
 
     def build_cell_covered_box(self) -> dp.Plot:
         tmp_df = self.met_df.rename(columns={"cg_cov": "CG", "ch_cov": "CH"})
-        IN = tmp_df[["sample", "CG", "CH"]].melt(
-            id_vars=["sample"], var_name="variable", value_name="value"
-        )
+        IN = tmp_df[["sample", "CG", "CH"]].melt(id_vars=["sample"], var_name="variable", value_name="value")
         fig = px.box(
             IN,
             x="variable",
@@ -1127,9 +1080,7 @@ class BuildDatapane:
 
     def build_cg_cell_methyl_percent_box(self) -> dp.Plot:
         tmp_met_df = self.met_df.rename(columns={"mcg_pct": ""})
-        IN = tmp_met_df[["sample", ""]].melt(
-            id_vars=["sample"], var_name="", value_name="value"
-        )
+        IN = tmp_met_df[["sample", ""]].melt(id_vars=["sample"], var_name="", value_name="value")
         fig = px.box(
             IN,
             x="",
@@ -1155,9 +1106,7 @@ class BuildDatapane:
 
     def build_ch_cell_methyl_percent_box(self) -> dp.Plot:
         tmp_met_df = self.met_df.rename(columns={"mch_pct": ""})
-        IN = tmp_met_df[["sample", ""]].melt(
-            id_vars=["sample"], var_name="", value_name="value"
-        )
+        IN = tmp_met_df[["sample", ""]].melt(id_vars=["sample"], var_name="", value_name="value")
         fig = px.box(
             IN,
             x="",
@@ -1183,9 +1132,7 @@ class BuildDatapane:
 
     def build_tss_enrich_box(self) -> dp.Plot:
         tmp_met_df = self.met_df.rename(columns={"tss_enrich": ""})
-        IN = tmp_met_df[["sample", ""]].melt(
-            id_vars=["sample"], var_name="variable", value_name="value"
-        )
+        IN = tmp_met_df[["sample", ""]].melt(id_vars=["sample"], var_name="variable", value_name="value")
         fig = px.box(
             IN,
             x="variable",
@@ -1243,9 +1190,7 @@ class BuildDatapane:
     def build_mito_tss_ch_table(self) -> dp.Table:
         mito_tss_dist_df = pd.DataFrame(
             {
-                "Cells with % of Mito Reads > 1": [
-                    len(self.all_cells[self.all_cells["mito_reads"] > 1])
-                ],
+                "Cells with % of Mito Reads > 1": [len(self.all_cells[self.all_cells["mito_reads"] > 1])],
                 "Cells with TSS Enrichment > 3": [
                     (
                         len(self.all_cells[self.all_cells["tss_enrich"] > 3])
@@ -1253,9 +1198,7 @@ class BuildDatapane:
                         else pd.NA
                     )
                 ],
-                "Cells with CH Methylation % > 1": [
-                    len(self.met_df[self.met_df["mch_pct"] > 1])
-                ],
+                "Cells with CH Methylation % > 1": [len(self.met_df[self.met_df["mch_pct"] > 1])],
             }
         )
         return DatapaneUtils.createTableIgnoreWarning(

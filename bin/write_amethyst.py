@@ -56,16 +56,12 @@ def write_amethyst(met_cg: list[Path], met_ch: list[Path], barcodes: list, sampl
                 )
                 for field in cov.keys():
                     arr[field] = cov[field]
-                group.create_dataset(
-                    bc, data=arr, compression="gzip", compression_opts=9
-                )
+                group.create_dataset(bc, data=arr, compression="gzip", compression_opts=9)
 
 
 def main():
     parser = argparse.ArgumentParser("Write Amethyst h5 file")
-    parser.add_argument(
-        "--met_cg", type=Path, nargs="+", help="Parquet file with CG met calls"
-    )
+    parser.add_argument("--met_cg", type=Path, nargs="+", help="Parquet file with CG met calls")
     parser.add_argument(
         "--met_ch",
         type=Path,
@@ -79,9 +75,7 @@ def main():
         nargs="+",
         help="File with all cell barcode information",
     )
-    parser.add_argument(
-        "--sample", required=True, help="Sample name with well coordinate"
-    )
+    parser.add_argument("--sample", required=True, help="Sample name with well coordinate")
     args = parser.parse_args()
     write_amethyst(
         met_cg=args.met_cg,

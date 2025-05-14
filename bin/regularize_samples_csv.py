@@ -48,9 +48,7 @@ def get_barcodes_range(libraryStruct: Path) -> str:
     # Get file corresponding to sample barcode so maximum well coordinate string can be computed
     for entry in libJson["barcodes"]:
         if entry["name"] == libJson["sample_barcode"]:
-            start, end = get_first_and_last_entry(
-                libraryStruct.parent / f"{entry['sequences']}"
-            )
+            start, end = get_first_and_last_entry(libraryStruct.parent / f"{entry['sequences']}")
 
     return f"{start}-{end}"
 
@@ -72,9 +70,7 @@ def get_first_and_last_entry(file: Path, sep: str = "\t") -> tuple[str, str]:
     return first_entry, last_entry
 
 
-def check_whether_barcode_ranges_overlap(
-    all_samples_barcode_range: Dict, libraryStruct: Path
-):
+def check_whether_barcode_ranges_overlap(all_samples_barcode_range: Dict, libraryStruct: Path):
     """
     Check whether the user supplied barcode ranges overlap amongst samples
     Throw exception if there is an overlap
@@ -90,9 +86,7 @@ def check_whether_barcode_ranges_overlap(
         if lib_struct["sample_barcode"] == barcode_info["name"]:
             fname = barcode_info["sequences"]
             break
-    barcode_whitelist = pd.read_csv(
-        lib_struct_dir / fname, sep="\t", names=["barcode", "well"]
-    )
+    barcode_whitelist = pd.read_csv(lib_struct_dir / fname, sep="\t", names=["barcode", "well"])
     for libName in all_samples_barcode_range:
         # Needs to be reset for each libName
         verbose_barcodes_list = []
@@ -101,13 +95,11 @@ def check_whether_barcode_ranges_overlap(
             for semi_colon_separated in sample_barcodes.split(";"):
                 if "-" in semi_colon_separated:
                     # Get well coordinate that corresponds to starting of the barcodes range for a sample
-                    starting = barcode_whitelist.index[
-                        barcode_whitelist["well"] == semi_colon_separated.split("-")[0]
-                    ][0]
+                    starting = barcode_whitelist.index[barcode_whitelist["well"] == semi_colon_separated.split("-")[0]][
+                        0
+                    ]
                     # Get well coordinate that corresponds to end of the barcodes range for a sample
-                    end = barcode_whitelist.index[
-                        barcode_whitelist["well"] == semi_colon_separated.split("-")[1]
-                    ][0]
+                    end = barcode_whitelist.index[barcode_whitelist["well"] == semi_colon_separated.split("-")[1]][0]
                     # Retrieve all the well coordinates that correspond to the barcodes range for a sample
                     all_barcodes = barcode_whitelist.loc[starting:end, "well"].tolist()
                     # extend because all_barcodes is a list
@@ -159,7 +151,7 @@ def main(samplesCsv: Path, splitFastq: bool, libraryStruct: Path, merge: bool):
             id = sample + "-" + libName
             validateName(id)
             if merge:
-                id = id+"-"+row[cols.index("resultDir")].strip()
+                id = id + "-" + row[cols.index("resultDir")].strip()
             if id in rows:
                 if merge:
                     print(f"Duplicate sample/lib name/resultDir combination: {id}", file=sys.stderr)
@@ -239,11 +231,7 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
     )
-    parser.add_argument(
-        "--libraryStruct", help="Library structure json file", type=Path
-    )
-    parser.add_argument(
-        "--merge", help="Merge samples.csv files", action="store_true", default=False
-    )
+    parser.add_argument("--libraryStruct", help="Library structure json file", type=Path)
+    parser.add_argument("--merge", help="Merge samples.csv files", action="store_true", default=False)
     args = parser.parse_args()
     main(args.samples, args.splitFastq, args.libraryStruct, args.merge)

@@ -48,9 +48,7 @@ def write_bismark(met_calls: list, barcodes: list, context: str):
         os.mkfifo("duckdb.pipe")
     for bc in barcodes:
         # send query to thread which will write to named pipe (FIFO) that is input to bgzip
-        query_thread = threading.Thread(
-            target=write_to_pipe, args=(met_calls, bc)
-        )
+        query_thread = threading.Thread(target=write_to_pipe, args=(met_calls, bc))
         query_thread.start()
         with open(outdir / f"{bc}.{context}.cov.gz", "wb") as f:
             gzip_process = subprocess.Popen(["bgzip", "-c", "./duckdb.pipe"], stdout=f)
@@ -60,18 +58,14 @@ def write_bismark(met_calls: list, barcodes: list, context: str):
 
 def main():
     parser = argparse.ArgumentParser("Write per-cell Bismark coverage files")
-    parser.add_argument(
-        "--met_calls", type=Path, nargs="+", help="Parquet file with met calls"
-    )
+    parser.add_argument("--met_calls", type=Path, nargs="+", help="Parquet file with met calls")
     parser.add_argument(
         "--all_cells",
         type=Path,
         nargs="+",
         help="File with all cell barcode information",
     )
-    parser.add_argument(
-        "--sample", required=True, help="Sample name with well coordinate"
-    )
+    parser.add_argument("--sample", required=True, help="Sample name with well coordinate")
     parser.add_argument(
         "--context",
         type=str,

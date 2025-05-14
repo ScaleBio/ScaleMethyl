@@ -21,9 +21,7 @@ def bam_intersect(id: str, bam_file: Path, tss_bed: Path, bg_bed: Path, cells: P
     bg_counts = defaultdict(int)
     background = pybedtools.BedTool(bg_bed)
     if len(background.intersect(background)) == 0:
-        print(
-            "No background elements found. Background bed file may be empty or invalid."
-        )
+        print("No background elements found. Background bed file may be empty or invalid.")
         sys.exit(1)
     bam = pybedtools.BedTool(bam_file)
     bg_overlaps = bam.intersect(background, u=True, bed=True, stream=True)
@@ -62,9 +60,7 @@ def main():
     parser.add_argument("--id", required=True, help="For output file name")
     parser.add_argument("--bam", type=Path, required=True, help="Dedup BAM file")
     parser.add_argument("--tss_bed", type=Path, required=True, help="tss BED file")
-    parser.add_argument(
-        "--bg_bed", type=Path, required=True, help="Background BED file"
-    )
+    parser.add_argument("--bg_bed", type=Path, required=True, help="Background BED file")
     parser.add_argument("--cells", type=Path, required=True, help="Cells file")
     args = parser.parse_args()
 

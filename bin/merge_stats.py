@@ -35,9 +35,7 @@ def accept_args() -> argparse.Namespace:
         type=Path,
         help="Path to directory containing split fragment_hist.tsv files",
     )
-    parser.add_argument(
-        "--sampleName", type=str, required=True, help="Identifier for this sample"
-    )
+    parser.add_argument("--sampleName", type=str, required=True, help="Identifier for this sample")
     parser.add_argument(
         "--mappingStatsPath",
         default=".",
@@ -57,8 +55,13 @@ def accept_args() -> argparse.Namespace:
         help="Path to directory containing dedup_stats.tsv files",
     )
     parser.add_argument(
-        "--outDir", default=".", type=Path, help="Path to write concatenated files to"
+        "--aligner",
+        default="bsbolt",
+        choices=["bsbolt", "bwa-meth"],
+        type=str,
+        help="Aligner used for mapping. Options: bsbolt, bwa_meth",
     )
+    parser.add_argument("--outDir", default=".", type=Path, help="Path to write concatenated files to")
     args = parser.parse_args()
     return args
 
@@ -92,9 +95,7 @@ def concat_dedup_stats(sampleName: str, outDir: Path, dedupStatsPath: Path):
     if file_list == []:
         print("No dedup_stats.tsv file found", file=sys.stderr)
     for idx, fname in enumerate(file_list):
-        df = pd.read_csv(
-            fname, sep="\t", header=None, names=["Metric", "Value", "Value2"]
-        )
+        df = pd.read_csv(fname, sep="\t", header=None, names=["Metric", "Value", "Value2"])
         df = df.drop("Value2", axis=1)
         if idx == 0:
             final_df = df
@@ -102,9 +103,7 @@ def concat_dedup_stats(sampleName: str, outDir: Path, dedupStatsPath: Path):
             final_df["Value"] = df["Value"].add(final_df["Value"])
 
     input_reads = final_df[final_df["Metric"] == "Input Reads"]["Value"].to_list()[0]
-    passing_reads = final_df[final_df["Metric"] == "Passing Reads"]["Value"].to_list()[
-        0
-    ]
+    passing_reads = final_df[final_df["Metric"] == "Passing Reads"]["Value"].to_list()[0]
     unique_reads = final_df[final_df["Metric"] == "Unique Reads"]["Value"].to_list()[0]
     final_df.loc[len(final_df)] = [
         "Passing Reads %",
@@ -150,16 +149,15 @@ def concat_cellinfo(sampleName: str, outDir: Path, cellInfoPath: Path):
             with open(file_name, "r") as infile:
                 contents = infile.read()
                 # Exclude lines containing "CellID"
-                filtered_contents = [
-                    line for line in contents.split("\n") if "CellID" not in line
-                ]
+                filtered_contents = [line for line in contents.split("\n") if "CellID" not in line]
                 outfile.write(("\n".join(filtered_contents)).replace("\t", ","))
 
 
-def build_mapping_stats(sampleName: str, outDir: Path, mappingStatsPath: Path):
+def build_mapping_stats_bsbolt(sampleName: str, outDir: Path, mappingStatsPath: Path):
     """
     Build mapping stats from the bsbolt log files
     """
+
     suffix = "*bsbolt.log"
     fullPath = os.path.join(mappingStatsPath, sampleName + suffix)
     filenamesList = glob.glob(fullPath)
@@ -179,24 +177,52 @@ def build_mapping_stats(sampleName: str, outDir: Path, mappingStatsPath: Path):
                     unaligned_reads.append(count)
     mapping_report = pd.DataFrame.from_dict(
         {
-            "Metric": [
-                "total_reads",
-                "unaligned_reads",
-                "mapped_reads",
-                "mapped_percent",
-            ],
+            "Metric": ["total_reads", "unaligned_reads", "mapped_reads", "mapped_percent"],
             "Value": [
                 int(sum(total_reads)),
                 int(sum(unaligned_reads)),
                 int(sum(total_reads) - sum(unaligned_reads)),
-                round(
-                    (
-                        (sum(total_reads) - sum(unaligned_reads))
-                        / sum(total_reads)
-                        * 100
-                    ),
-                    2,
-                ),
+                round(((sum(total_reads) - sum(unaligned_reads)) / sum(total_reads) * 100), 2),
+            ],
+        },
+        dtype="object",
+    )
+    mapping_report.to_csv(f"{outDir}/{sampleName}.mapping_stats.csv", index=False)
+
+
+def build_mapping_stats_bwa(sampleName: str, outDir: Path, mappingStatsPath: Path):
+    """
+    Build mapping stats from the bwa_meth log files
+    """
+    suffix = "*bwa_meth.log"
+    fullPath = os.path.join(mappingStatsPath, sampleName + suffix)
+    filenamesList = glob.glob(fullPath)
+    if filenamesList == []:
+        print("No logs found for bwa_meth(mapping)", file=sys.stderr)
+        return
+    total_reads = []
+    aligned_reads = []
+    for file in filenamesList:
+        with open(file) as fh:
+            for index, line in enumerate(fh):
+                # Example log lines:
+                # line 0: 3772	49	total (QC-passed reads + QC-failed reads)
+                # line 6: 3770	49	mapped
+                if index == 0:
+                    count = int(line.strip().split("\t")[0])
+                    total_reads.append(count)
+                if index == 6:
+                    count = int(line.strip().split("\t")[0])
+                    aligned_reads.append(count)
+                    break
+    mapping_report = pd.DataFrame.from_dict(
+        {
+            "Metric": ["total_reads", "unaligned_reads", "mapped_reads", "mapped_percent"],
+            "Value": [
+                int(sum(total_reads)),
+                int(sum(total_reads) - sum(aligned_reads)),
+                int(sum(aligned_reads)),
+                round(((sum(aligned_reads)) / sum(total_reads) * 100), 2),
             ],
         },
         dtype="object",
@@ -242,7 +268,10 @@ def main():
     concat_cell_stats(args.sampleName, args.outDir, args.cellStatsPath)
     concat_fragment_histogram(args.sampleName, args.outDir, args.fragmentHistPath)
     concat_cellinfo(args.sampleName, args.outDir, args.cellInfoPath)
-    build_mapping_stats(args.sampleName, args.outDir, args.mappingStatsPath)
+    if args.aligner == "bsbolt":
+        build_mapping_stats_bsbolt(args.sampleName, args.outDir, args.mappingStatsPath)
+    elif args.aligner == "bwa-meth":
+        build_mapping_stats_bwa(args.sampleName, args.outDir, args.mappingStatsPath)
     build_trimming_stats(args.sampleName, args.outDir, args.trimmingStatsPath)
 
 

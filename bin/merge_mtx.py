@@ -35,16 +35,12 @@ def merge_mtx(
         feature_count = sum(1 for _ in f)
 
     # Initialize an empty sparse matrix with the correct shape
-    mtx = csc_array(
-        (feature_count, 0), dtype=np.float32
-    )  # Start with an empty matrix with float32 type
+    mtx = csc_array((feature_count, 0), dtype=np.float32)  # Start with an empty matrix with float32 type
     column_names = []
     idx_dict = {val: idx for idx, val in enumerate(passing_bc)}
     for mtx_file, barcode_file in zip(mtx_files, barcode_files):
         with open(mtx_file, "rb") as f, open(barcode_file, "r") as bar:
-            matrix = csc_array(
-                mmread(f), dtype=np.float32
-            )  # Ensure the matrix is of type float32
+            matrix = csc_array(mmread(f), dtype=np.float32)  # Ensure the matrix is of type float32
             bcs = [line.strip() for line in bar.readlines()]
             filtered_bc = [bc for bc in bcs if bc in passing_bc]
             column_names.extend(filtered_bc)
@@ -54,11 +50,7 @@ def merge_mtx(
 
     # get indices to re-sort matrix to match barcodes order in all_cells
     score_str = ".score" if context == "CG" else ""
-    comment = (
-        "\nCG context score matrix\n"
-        if context == "CG"
-        else "\nCH context methylation rate matrix\n"
-    )
+    comment = "\nCG context score matrix\n" if context == "CG" else "\nCH context methylation rate matrix\n"
     with gzip.open(f"{sample}.{context}{score_str}.mtx.gz", "wb", compresslevel=6) as f:
         mmwrite(f, mtx, comment=comment, precision=3)
 
@@ -73,18 +65,10 @@ def merge_mtx(
 def main():
     parser = argparse.ArgumentParser("Merge matrices into sparse mtx format")
     parser.add_argument("--sample", required=True, help="Sample name")
-    parser.add_argument(
-        "--barcodes", nargs="+", type=Path, required=True, help="Barcode tsv files"
-    )
-    parser.add_argument(
-        "--features", type=Path, required=True, help="Features tsv file"
-    )
-    parser.add_argument(
-        "--mtx", nargs="+", type=Path, required=True, help=".mtx files to merge"
-    )
-    parser.add_argument(
-        "--all_cells", type=Path, nargs="+", help="File with all cell info"
-    )
+    parser.add_argument("--barcodes", nargs="+", type=Path, required=True, help="Barcode tsv files")
+    parser.add_argument("--features", type=Path, required=True, help="Features tsv file")
+    parser.add_argument("--mtx", nargs="+", type=Path, required=True, help=".mtx files to merge")
+    parser.add_argument("--all_cells", type=Path, nargs="+", help="File with all cell info")
     args = parser.parse_args()
     merge_mtx(
         sample=args.sample,

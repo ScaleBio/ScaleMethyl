@@ -55,9 +55,7 @@ def merge(bc_jsons, lib_json, libName):
     for bc_json in bc_jsons_list:
         for barcode_level in bc_json["barcodes"]:
             for read_metrics in bc_json["barcodes"][barcode_level]:
-                summation_metrics[barcode_level][read_metrics] += bc_json["barcodes"][
-                    barcode_level
-                ][read_metrics][0]
+                summation_metrics[barcode_level][read_metrics] += bc_json["barcodes"][barcode_level][read_metrics][0]
 
     # Loop to assign metrics from summation_metrics to master_dict
     for barcode_level in summation_metrics:
@@ -86,9 +84,7 @@ def merge(bc_jsons, lib_json, libName):
         ]
 
     # Initialize dict which will hold combined metrics from "samples" section
-    summation_metrics = defaultdict(
-        dict, {k: {} for k in list(bc_jsons_list[0]["samples"].keys())}
-    )
+    summation_metrics = defaultdict(dict, {k: {} for k in list(bc_jsons_list[0]["samples"].keys())})
     for key in summation_metrics:
         summation_metrics[key]["reads"] = 0
         summation_metrics[key]["barcodes"] = {}
@@ -108,34 +104,28 @@ def merge(bc_jsons, lib_json, libName):
             for key in bc_json["samples"][sample_name]:
                 # If key is "name" or "number" value will be same in combined dict as individual dicts
                 if key == "name" or key == "number":
-                    summation_metrics[sample_name][key] = bc_json["samples"][
-                        sample_name
-                    ][key]
+                    summation_metrics[sample_name][key] = bc_json["samples"][sample_name][key]
                 elif key == "reads":
                     # 0 for number of reads and 1 for percent of reads
                     total += bc_json["samples"][sample_name][key][0]
-                    summation_metrics[sample_name][key] += bc_json["samples"][
-                        sample_name
-                    ][key][0]
+                    summation_metrics[sample_name][key] += bc_json["samples"][sample_name][key][0]
                 # Key is "barcodes"
                 else:
                     for well in bc_json["samples"][sample_name][key]:
                         # Sum up reads in all demux jsons for that specific barcode
-                        summation_metrics[sample_name][key][well]["reads"] += bc_json[
-                            "samples"
-                        ][sample_name][key][well]["reads"]
-                        summation_metrics[sample_name][key][well]["sequence"] = bc_json[
-                            "samples"
-                        ][sample_name][key][well]["sequence"]
+                        summation_metrics[sample_name][key][well]["reads"] += bc_json["samples"][sample_name][key][
+                            well
+                        ]["reads"]
+                        summation_metrics[sample_name][key][well]["sequence"] = bc_json["samples"][sample_name][key][
+                            well
+                        ]["sequence"]
 
     # Construct master dict that will hold final merged information
     for sample_name in summation_metrics:
         master_dict["samples"][sample_name] = {}
         for key in summation_metrics[sample_name]:
             if key == "name" or key == "number" or key == "barcodes":
-                master_dict["samples"][sample_name][key] = summation_metrics[
-                    sample_name
-                ][key]
+                master_dict["samples"][sample_name][key] = summation_metrics[sample_name][key]
             else:
                 master_dict["samples"][sample_name][key] = [
                     summation_metrics[sample_name][key],
@@ -147,9 +137,7 @@ def merge(bc_jsons, lib_json, libName):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Merge bc parser output files into one"
-    )
+    parser = argparse.ArgumentParser(description="Merge bc parser output files into one")
     parser.add_argument(
         "--bc_jsons",
         nargs="+",
@@ -157,9 +145,7 @@ def main():
         help="bc parser json files that need to be concatenated",
         required=True,
     )
-    parser.add_argument(
-        "--lib_json", type=str, help="Path to library json file", required=True
-    )
+    parser.add_argument("--lib_json", type=str, help="Path to library json file", required=True)
     parser.add_argument("--libName", type=str, help="Library name", required=True)
     args = parser.parse_args()
 

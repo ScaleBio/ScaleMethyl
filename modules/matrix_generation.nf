@@ -46,8 +46,8 @@ process MergeMtxCG {
 input:
 	tuple val(sample), path(mtx), path(barcodes), path(features), path(allCells, stageAs:'allCells?')
 output:
-	tuple val(sample), path("${sample}.CG.score.mtx.gz")
-	tuple val(sample), path("${sample}.barcodes.tsv")
+	tuple val(sample), path("${sample}.CG.score.mtx.gz"), emit: CGmtx
+	tuple val(sample), path("${sample}.barcodes.tsv"), emit: barcodes
 	tuple val(sample), path("${sample}.CG.features.tsv")
 tag "$sample"
 publishDir file(params.outDir) / "samples" / "genome_bin_matrix", pattern: "*.{mtx.gz,tsv}", mode: 'copy'
@@ -153,7 +153,8 @@ main:
         }
         .dump(tag: 'cgPass')
         .set { cgPass }
-
+    CGmtx = Channel.of([])
+    CGmtxBarcodes = Channel.of([])
     if (params.windowMatrixOut) {
         MtxCG(genome.genomeTiles, cgPass)
         MtxCG.out.mtx
@@ -172,7 +173,9 @@ main:
             .dump(tag: 'mtxCGPerSample')
             .set { mtxCGPerSample }
         MergeMtxCG(mtxCGPerSample)
-    }
+        CGmtx = MergeMtxCG.out.CGmtx // Merged CG matrix per sample
+        CGmtxBarcodes = MergeMtxCG.out.barcodes
+    } 
     chPass = Channel.of()
     if(params.calculateCH) {
         metCH
@@ -256,4 +259,7 @@ main:
             CreateAmethyst(cgPass)
         }
     }
+emit:
+    CGmtx = CGmtx // Merged CG matrix per sample
+    CGmtxBarcodes = CGmtxBarcodes // Barcodes for CG matrix
 }

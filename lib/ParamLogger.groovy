@@ -32,7 +32,7 @@ class ParamLogger {
                                   'minCellRatio', 'minUniqCount', 'minUniqTotal', 'maxUniqTotal', 'maxMemory', 'maxCpus',
                                   'maxTime', 'dedupKey', 'minMapq', 'help', 'allcOut', 'covOut', 'chReadsThreshold', 'amethystOut',
                                   'parquetOut','startPostAlignment', 'merged', 'calculateCH', 'calculate-CH', 'windowTileSizeCG', 
-                                  'windowTileSize-CG','windowTileSizeCH','windowTileSize-CH', 'minimumWindowSize' ]
+                                  'windowTileSize-CG','windowTileSizeCH','windowTileSize-CH', 'minimumWindowSize','aligner' ]
         def masterListOfParams = allowedParameters
         allowedParameters.each { str ->
             masterListOfParams += camelToKebab(str)}

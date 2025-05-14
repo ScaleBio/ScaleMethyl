@@ -4,7 +4,8 @@ import groovy.json.JsonOutput
 
 include { INPUT_READS } from './modules/input_reads.nf'
 include { INPUT_BAM_READS } from './modules/input_bam_reads.nf'
-include { METRICS_AND_REPORTING } from './modules/metrics_and_reporting.nf'
+include { METRICS } from './modules/metrics.nf'
+include { REPORTING } from './modules/reporting.nf'
 include { MATRIX_GENERATION } from './modules/matrix_generation.nf'
 include { DEDUP_AND_EXTRACT } from './modules/dedup_and_extract.nf'
 
@@ -23,8 +24,14 @@ def expandPath(path, baseDir) {
 def loadGenome(json) {
 	def baseDir = json.getParent()
 	genome = loadJson(json)
-	genome.bsbolt_index = expandPath(genome.bsbolt_index, baseDir)
-	genome.bsbolt_chrs = expandPath(genome.bsbolt_chrs, baseDir)
+	if(params.aligner=="bsbolt") {
+		genome.bsbolt_index = expandPath(genome.bsbolt_index, baseDir)
+	} else if(params.aligner=="bwa-meth") {
+		genome.bwa_index = expandPath(genome.bwa_index, baseDir)
+	} else {
+		throwError("Invalid aligner specified in config: ${params.aligner}")
+	}
+	genome.filter_chrs = expandPath(genome.filter_chrs, baseDir)
 	if(genome.genomeTileBlackList) {
 		genome.genomeTileBlackList = expandPath(genome.genomeTileBlackList, baseDir)
 	}
@@ -143,7 +150,6 @@ input:
 output:
 	path("chrom.sizes")
 publishDir file(params.outDir) / "samples" / "genome_bin_matrix", mode: 'copy'
-// Using bsbolt index for now, change this if we use a new aligner
 script:
 """
 	create_chrom_sizes.py --fastaFile $fastaFile --output chrom.sizes
@@ -191,7 +197,7 @@ label 'process_single'
 publishDir file(params.outDir), mode:'copy'
 script:
 """
-	merge_stats.py --sampleName ${sample} --outDir metrics_for_reporting
+	merge_stats.py --sampleName ${sample} --outDir metrics_for_reporting --aligner ${params.aligner}
 """
 }
 
@@ -207,8 +213,12 @@ workflow {
 	genome = loadGenome(file(params.genome))
 	// chrom.size only needs to be created if a windowTileSize is set
 	if(params.windowTileSizeCG || params.windowTileSizeCH) {
-		// Uses bsbolt reference fasta to create a chrom.sizes file for matrix generation
-		faFile = genome.bsbolt_index.resolve("BSB_ref.fa")
+		// Uses aligner reference fasta to create a chrom.sizes file for matrix generation
+		if(params.aligner == "bsbolt") {
+			faFile = genome.bsbolt_index.resolve("BSB_ref.fa")
+		} else {
+			faFile = genome.bwa_index.resolve(genome.bwa_fasta)
+		}
 		chromSizeFile = null
 		if(genome.chromSizes) {
 			chromSizeFile = genome.chromSizes
@@ -239,13 +249,15 @@ workflow {
 	allCells = null
 	metCG = null
 	metCH = null
+	trimmingAndMapping = null
+	metrics = null
 
 	// If Matrix Checkpointing is enabled or reporting only is checked, start from matrix generation
 	if (!params.startPostAlignment && !params.reportingOnly) {
 
 		// Indicates starting from bam files
 		if (params.bam1Dir != null && params.bam2Dir != null) {
-			// Module that merges per TN5 bam files in two bsbolt output directories
+			// Module that merges per TN5 bam files in two aligner output directories
 			INPUT_BAM_READS(params.bam1Dir, params.bam2Dir)
 			dedupBamInput = INPUT_BAM_READS.out.mergedBam
 			// If starting from bam files, trimming and mapping stats do not exist since those steps are not run
@@ -263,12 +275,12 @@ workflow {
 		threshold = samples.map{[it.sample, toIntOr0(it.threshold)]}
 		
 		if (trimmingAndMapping) {
-			// Collect all bsbolt log files for a sample
+			// Collect all aligner log files for a sample
 			sampleMapStats = INPUT_READS.out.alignLog.map({it[1]}).map { file ->
 				def ns = file.getName().toString().tokenize('.')
 				return tuple(ns.get(0), file)
 			}.groupTuple()
-			// sampleMapStats -> [sample name, [list of bsbolt.log files]]
+			// sampleMapStats -> [sample name, [list of aligner log files]]
 			sampleMapStats.dump(tag: 'sampleMapStats')
 			// Collect all trim_galore report files for a sample
 			sampleTrimStats = INPUT_READS.out.trimLog.map({it[1]}).map { file ->
@@ -307,9 +319,9 @@ workflow {
 		mergedReportStats = mergedReportStats.join(threshold)
 		
 		// Generate metrics from merged stats and use those metrics for generating html reports
-		METRICS_AND_REPORTING(mergedReportStats, MergeStats.out.fragmentHist, MergeStats.out.dedupStats, trimmingAndMappingStats, demuxMetrics, null, DEDUP_AND_EXTRACT.out.dedupBam, libJson, trimmingAndMapping, false, genome, samples)
-
-		allCells = METRICS_AND_REPORTING.out.allCells.groupTuple()
+		metrics = METRICS(mergedReportStats, MergeStats.out.fragmentHist, MergeStats.out.dedupStats, demuxMetrics, trimmingAndMappingStats, null, DEDUP_AND_EXTRACT.out.dedupBam, libJson, trimmingAndMapping, false, genome, samples)
+			
+		allCells = METRICS.out.allCells.groupTuple()
 		metCG = DEDUP_AND_EXTRACT.out.metCG.groupTuple()
 		metCH = DEDUP_AND_EXTRACT.out.metCH.groupTuple()
 	} else {
@@ -399,8 +411,8 @@ workflow {
 		)}.unique()
 
 		// Generate metrics from merged stats and use those metrics for generating html reports
-		METRICS_AND_REPORTING(metricInput, fragHist, dedupStats, null, demuxMetrics, tssEnrich, null, libJson, false, true, genome, samples)
-
+		metrics = METRICS(metricInput, fragHist, dedupStats, demuxMetrics, null, tssEnrich, null, libJson, false, true, genome, samples)
+		trimmingAndMapping = false
 		// If Matrix Checkpointing is enabled, start from matrix generation
 		if(params.startPostAlignment) {
 			// if using previous output directory, use the previous allCells.csv and met_ files
@@ -472,11 +484,19 @@ workflow {
 			}
 		}
 	}
+
+	CGmtx = Channel.of([])
+	CGmtxBarcodes = Channel.of([])
 	
 	if(!params.reportingOnly) {
 		// Generate binned matrices
 		MATRIX_GENERATION(allCells,metCG,metCH, genome)
+
+		// CG matrix per sample
+		CGmtx = MATRIX_GENERATION.out.CGmtx
+		CGmtxBarcodes = MATRIX_GENERATION.out.CGmtxBarcodes
 	}
+	REPORTING(metrics.reportInput, libJson, trimmingAndMapping, params.reportingOnly, metrics.passingCellMethylStats, metrics.csvFolder, metrics.combinedCsvFolder, metrics.libraryStats, CGmtx, CGmtxBarcodes)
 }
 
 // Function that gets invoked when workflow completes

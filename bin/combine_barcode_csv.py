@@ -9,7 +9,7 @@ from pathlib import Path
 from shutil import copyfileobj
 
 
-def combine_csv(file_list: list,header:bool, outFile: Path) :
+def combine_csv(file_list: list, header: bool, outFile: Path):
     """
     Combine multiple CSV files into a single output file.
     Args:
@@ -28,9 +28,10 @@ def combine_csv(file_list: list,header:bool, outFile: Path) :
                         first_line = False
                         if header:
                             continue
-                    out.write(line.strip()+'\n')
+                    out.write(line.strip() + "\n")
             first_file = False
-        
+
+
 def main():
     parser = argparse.ArgumentParser(description="Combine CSV files.")
     parser.add_argument("--inFiles", nargs="+", type=Path, help="List of CSV files to combine.")
@@ -38,7 +39,8 @@ def main():
     parser.add_argument("--header", action=argparse.BooleanOptionalAction, help="Is there a header in the CSV files?")
 
     args = parser.parse_args()
-    combine_csv(args.inFiles, args.header,args.outFile)
+    combine_csv(args.inFiles, args.header, args.outFile)
+
 
 if __name__ == "__main__":
     main()

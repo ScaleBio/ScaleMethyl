@@ -27,5 +27,5 @@ The output directory will contain the following metrics files
             <filename.dedup.bam> file
     
 ### Options
-The `--genome <genome.tsv>` option specifies the reference genome chromosome information for metrics. In order to get accurate counts of total and unique reads, it is important to include the line `chrM    mito` in the <genome.tsv> specified by this option.  An example genome.tsv can be found at the location referred to by the bsbolt_chrs setting in [genomes.json](examples/genome.json)
+The `--genome <genome.tsv>` option specifies the reference genome chromosome information for metrics. In order to get accurate counts of total and unique reads, it is important to include the line `chrM    mito` in the <genome.tsv> specified by this option.  An example genome.tsv can be found at the location referred to by the filter_chrs setting in [genomes.json](examples/genome.json)
 

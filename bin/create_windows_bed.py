@@ -11,18 +11,10 @@ def parse_args():
     Parse command line arguments
     """
     parser = argparse.ArgumentParser(description="Create BED file with genomic windows")
-    parser.add_argument(
-        "--genomeTiles", type=int, required=True, help="Size of the windows"
-    )
-    parser.add_argument(
-        "--chromSizes", type=Path, required=True, help="Path to the chrom.sizes file"
-    )
-    parser.add_argument(
-        "--blacklist", type=Path, required=False, help="Path to the blacklist file"
-    )
-    parser.add_argument(
-        "--output", type=Path, required=True, help="Path to the output BED file"
-    )
+    parser.add_argument("--genomeTiles", type=int, required=True, help="Size of the windows")
+    parser.add_argument("--chromSizes", type=Path, required=True, help="Path to the chrom.sizes file")
+    parser.add_argument("--blacklist", type=Path, required=False, help="Path to the blacklist file")
+    parser.add_argument("--output", type=Path, required=True, help="Path to the output BED file")
     parser.add_argument(
         "--minimumWindowSize",
         type=int,

@@ -43,9 +43,7 @@ def score_mtx(met_rate: csc_array):
     return coo_array((score_data, (row, col)), shape=met_rate.shape)
 
 
-def create_mtx(
-    met_calls: list[str], bedfile: Path, passing_bc: list, sample: str, context: str
-):
+def create_mtx(met_calls: list[str], bedfile: Path, passing_bc: list, sample: str, context: str):
     """
     Creates matrices of methylation rates for regions defined by a BED file.
 
@@ -141,9 +139,7 @@ def create_mtx(
     with open(f"{sample}.barcodes.tsv", "w") as f:
         for bc in passing_bc:
             f.write(f"{bc}\n")
-    regions.to_csv(
-        f"{sample}.{context}.features.tsv", sep="\t", index=False, header=False
-    )
+    regions.to_csv(f"{sample}.{context}.features.tsv", sep="\t", index=False, header=False)
 
 
 def main():
@@ -154,16 +150,10 @@ def main():
         required=True,
         help="BED file with non-overlapping regions",
     )
-    parser.add_argument(
-        "--met_calls", type=Path, nargs="+", help="Parquet file with met calls"
-    )
+    parser.add_argument("--met_calls", type=Path, nargs="+", help="Parquet file with met calls")
     parser.add_argument("--sample", required=True, help="Sample name")
-    parser.add_argument(
-        "--CH", action="store_true", default=False, help="Use CH context met calls"
-    )
-    parser.add_argument(
-        "--all_cells", type=Path, nargs="+", help="File with all cell info"
-    )
+    parser.add_argument("--CH", action="store_true", default=False, help="Use CH context met calls")
+    parser.add_argument("--all_cells", type=Path, nargs="+", help="File with all cell info")
     args = parser.parse_args()
 
     create_mtx(

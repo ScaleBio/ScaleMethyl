@@ -167,14 +167,13 @@ script:
 """
 }
 
-// Align trimmed fastq files to a reference genome using bsbolt
-process Align {
+process AlignBsBolt {
 input: 
 	path(index) // Bismark index directory
 	tuple val(sample), path(pairs)
 output: 
 	tuple val(sample), path("${sample}.bam"), emit: bam
-	tuple val(sample), path("${sample}.bsbolt.log"), emit: log
+	tuple val(sample), path("${sample}.*.log"), emit: log
 publishDir { outDir }, pattern: "${sample}.bam", enabled: params.bamOut
 tag "$sample"
 script:
@@ -182,7 +181,29 @@ script:
 	athreads = task.cpus - 2 
 	othreads = 2
 """
-	bsbolt Align -F1 ${pairs[1]} -F2 ${pairs[0]} -t $athreads -OT $othreads -O $sample -DB $index >> ${sample}.bsbolt.log 2>> ${sample}.bsbolt.log
+    bsbolt Align -F1 ${pairs[1]} -F2 ${pairs[0]} -t $athreads -OT $othreads -O $sample -DB $index >> ${sample}.bsbolt.log 2>> ${sample}.bsbolt.log
+"""
+}
+
+process AlignBWAMeth {
+input: 
+	path(index) // Bismark index directory
+	tuple val(sample), path(pairs)
+    val(fastaName) // Name of the fasta file to be used for bwa-meth
+output: 
+	tuple val(sample), path("${sample}.bam"), emit: bam
+	tuple val(sample), path("${sample}.*.log"), emit: log
+publishDir { outDir }, pattern: "${sample}.bam", enabled: params.bamOut
+tag "$sample"
+script:
+    outDir = file(params.outDir) / "alignments" / "bam" / sample
+	athreads = task.cpus - 2 
+	othreads = 2
+"""
+    # Touch the index files to update the timestamp for bwa-meth
+    touch -d \"\$(date -R -r $index/${fastaName}.bwameth.c2t) - 2 hours\" -m $index/${fastaName}.bwameth.c2t
+    bwameth.py --threads $athreads --reference $index/$fastaName ${pairs[1]} ${pairs[0]} 2>> ${sample}.bwa_meth.runtime | samtools view -@ $othreads -bS - -o ${sample}.bam
+    samtools flagstat -O tsv -@ $task.cpus ${sample}.bam > ${sample}.bwa_meth.log
 """
 }
 
@@ -340,16 +361,21 @@ main:
     Trim.out.fastq.dump(tag: 'Trim.out.fastq')
 
     // Run bsbolt(aligner) on trimmed fastq files
-	Align(genome.bsbolt_index, Trim.out.fastq)
+    AlignOut = null
+    if(params.aligner == "bsbolt") {
+        AlignOut=AlignBsBolt(genome.bsbolt_index, Trim.out.fastq)
+    } else {
+	    AlignOut=AlignBWAMeth(genome.bwa_index, Trim.out.fastq, genome.bwa_fasta)
+    }
     
     // if splitFastq = true: Align.out.bam -> [sample name.well coordinate, sample name.well coordinate.bam]
 	// if splitFastq = false: Align.out.bam -> [sample name, sample name.bam]
-	Align.out.bam.dump(tag: 'Align.out.bam')
+	AlignOut.bam.dump(tag: 'Align.out.bam')
 
 emit:
     trimLog = Trim.out.stats // cutadapt statistics
     trimFastq = Trim.out.fastq // Trimmed fastq files
     mergedBcParserMetrics = MergeDemux.out.barcodeMetrics // bcParser metrics for all libName
-    alignedBam = Align.out.bam // Post bsbolt aligned bams
-    alignLog = Align.out.log // bsbolt log file
+    alignedBam = AlignOut.bam // Post alinger aligned bams
+    alignLog = AlignOut.log // aligner log file
 }

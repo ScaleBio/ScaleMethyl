@@ -59,6 +59,26 @@
                 "samples"
             ]
         },
+        "aligner": {
+            "title": "Pick aligner",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define analysis input data.",
+            "properties": {
+                "aligner": {
+                    "type": "string",
+                    "description": "Aligner to use for genomic alignment",
+                    "default": "bwa-meth",
+                    "enum": [
+                        "bwa-meth",
+                        "bsbolt"
+                    ]
+                }
+            },
+            "required": [
+                "aligner"
+            ]
+        },
         "output_options": {
             "title": "Output paths and options",
             "type": "object",
