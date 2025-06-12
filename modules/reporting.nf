@@ -20,7 +20,7 @@ output:
 	tuple val(sample), path("${sample}/${sample}.report.html"), emit: report
 	
 	tuple val(sample), path("${sample}/png")
-	tuple val(sample), path("${sample}/csv/${sample}.report_clusters.tsv")
+	tuple val(sample), path("${sample}/csv/${sample}.report_clusters.tsv"), optional: true
 publishDir { outDir }, pattern: "${sample}/*.html", mode:'copy'
 publishDir { outDir }, pattern: "${sample}/png", mode:'copy'
 publishDir { outDir }, pattern: "${sample}/csv/${sample}.report_clusters.tsv", mode:'copy'
@@ -36,12 +36,13 @@ script:
 	}
     libStruct = "$references/$libStructJsonFileName"
     outDir = file(params.outDir) / "report" / "sample_reports"
+	options = CGmtx ? "--mtxFile ${CGmtx} --mtxBarcodes ${CGmtxBarcodes}" : ""
 	"""
 	export DATAPANE_CDN_BASE="https://d3j2ibc7el7s1k.cloudfront.net/v0.17.0"
 	export TMPDIR=\$(mktemp -p `pwd` -d)
 	generate_sample_report.py --sample_name ${sample} --out_dir ${sample} --all_cells allCells.csv --library_structure_json $libStruct \
 	--fragment_hist ${fragmentHist} --tss_enrich ${tssEnrich} --dedup_stats ${dedupStats} $opts --library_name $libraryName --sample_barcodes "$sampleBarcodes" --workflow_version $workflowVersion \
-    --passing_cell_stats ${passingCellStats} --csv_folder ${csvFolder} --mtxFile ${CGmtx} --mtxBarcodes ${CGmtxBarcodes}
+    --passing_cell_stats ${passingCellStats} --csv_folder ${csvFolder} ${options}
 	"""
 }
 
@@ -84,7 +85,12 @@ take:
 	CGmtx // CG methylation matrix
 	CGmtxBarcodes // Barcodes for CG mtx
 main:
-    reportInput = reportInput.join(passingCellMethylStats).join(csvFolder).join(CGmtx).join(CGmtxBarcodes)
+	if(!params.reportingOnly && params.windowMatrixOut) {
+    	reportInput = reportInput.join(passingCellMethylStats).join(csvFolder).join(CGmtx).join(CGmtxBarcodes)
+	} else {
+		// CGmtx = CGmtxBarcodes = [] if params.windowMatrixOut is false or params.reportingOnly is true
+		reportInput = reportInput.join(passingCellMethylStats).join(csvFolder).merge(CGmtx).merge(CGmtxBarcodes)
+	}
     GenerateSampleReport(reportInput, libJson.getParent(), libJson.getName(), trimmingAndMapping, reportingOnly, workflow.manifest.version)
 
     libraryStats = libraryStats.join(combinedCsvFolder)

@@ -1,7 +1,7 @@
 # Version 1.2
 ## 1.2.5
 * Development version for 1.3 (development branch only)
-    - Includes BWA-meth aligner and reporting improvements
+    - Includes BWA-meth/parabricks aligner and reporting improvements
 ## 1.2.4
 * Fix to .cov file output. CG and CH files were being generated on top of eachother.
     - Introduced in v1.2.0 and affected runs with --covOut True

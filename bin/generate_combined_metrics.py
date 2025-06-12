@@ -35,12 +35,6 @@ def accept_args() -> argparse.Namespace:
         help="Path to passing methyl stats files",
     )
     parser.add_argument(
-        "--bc_parser_metrics",
-        default="demuxMetrics.json",
-        type=Path,
-        help="Path to json file containing bcParser metrics",
-    )
-    parser.add_argument(
         "--library_structure_json",
         type=Path,
         help="Path to library structure json file",

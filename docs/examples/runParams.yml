@@ -11,6 +11,3 @@ genome : ${projectDir}/docs/examples/genome.json
 
 ### Value set for the test dataset. Please refer to documentation for an appropriate value to set for your actual experiment
 minUniqCount: 1000
-
-#### Alternate Start Points. Requires files to be generated in a previous run first.
-startPostAlignment: false

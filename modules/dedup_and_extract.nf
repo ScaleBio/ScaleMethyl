@@ -27,7 +27,7 @@ script:
     outDir = file(params.outDir) / "alignments" / "dedup" / sample
 	sthreads = task.cpus
 """
-	samtools sort --threads $sthreads $bam -o ${sample}.coodsort.bam
+	samtools sort --threads $sthreads $bam -O bam -o ${sample}.coodsort.bam
 	sc_dedup ${sample}.coodsort.bam --duplicate-key ${params.dedupKey} --min-mapq ${params.minMapq} --barcode-input Qname --out-prefix ${sample} --write-threads $sthreads --genome $chroms
     # count number of passing reads
     TOTAL_READS=\$(cat ${sample}.cell_stats.tsv | awk 'BEGIN { total_reads = 0 } NR > 1 { total_reads += \$3 } END { print total_reads }')
@@ -53,7 +53,7 @@ script:
     outDir = file(params.outDir) / "alignments" / "dedup" / sample
     nprocs = Math.max(task.cpus - 1, 1)
     contexts = (params.calculateCH) ? "CG,CH" : "CG"
-    options = (params.aligner == 'bwa-meth') ? "--ref $index/$fastaFile" : ""
+    options = (aligner == 'bwa-meth' || aligner == 'parabricks') ? "--ref $index/$fastaFile" :  ""
 """
 	met_extract.py $bam --sample $sample --threshold ${params.chReadsThreshold / 100} --subprocesses $nprocs --contexts $contexts --aligner $aligner $options
 """
@@ -71,7 +71,10 @@ main:
     // Extract methylation stats from deduplicated bam files
     if(params.aligner == 'bwa-meth') {
         index = genome.bwa_index
-        fastaFile = genome.bwa_fasta
+        fastaFile = genome.ref_fasta
+    } else if(params.aligner == 'parabricks') {
+        index = genome.parabricks_index
+        fastaFile = genome.ref_fasta
     } else {
         index = []
         fastaFile = ""

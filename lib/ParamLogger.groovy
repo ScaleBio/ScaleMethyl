@@ -31,8 +31,9 @@ class ParamLogger {
                                   'bam1Dir', 'bam2Dir','bamMergeOut', 'bamRgHeader', 'trimFastq', 'adapters', 'fastqc', 'topCellPercentile',
                                   'minCellRatio', 'minUniqCount', 'minUniqTotal', 'maxUniqTotal', 'maxMemory', 'maxCpus',
                                   'maxTime', 'dedupKey', 'minMapq', 'help', 'allcOut', 'covOut', 'chReadsThreshold', 'amethystOut',
-                                  'parquetOut','startPostAlignment', 'merged', 'calculateCH', 'calculate-CH', 'windowTileSizeCG', 
-                                  'windowTileSize-CG','windowTileSizeCH','windowTileSize-CH', 'minimumWindowSize','aligner' ]
+                                  'parquetOut','startPostExtraction', 'merged', 'calculateCH', 'calculate-CH', 'windowTileSizeCG', 
+                                  'windowTileSize-CG','windowTileSizeCH','windowTileSize-CH', 'minimumWindowSize','aligner',
+                                  'parabricksNumGpu' ]
         def masterListOfParams = allowedParameters
         allowedParameters.each { str ->
             masterListOfParams += camelToKebab(str)}
@@ -49,14 +50,15 @@ class ParamLogger {
         if (params.genome == null || params.genome == true) {
             throwError("Must specify --genome")
         }
-        if ((params.runFolder || params.fastqDir) && (params.bam1Dir || params.bam2Dir)) {
-            throwError("Either start from bam file or a runFolder/fastqDir, not both")
+        def sum = 0
+        if ([params.fastqDir, params.runFolder].count { it } > 1) {
+            throwError("One input type must be specified at a time: --runFolder, --fastqDir.")
         }
-        if ((params.reportingOnly || params.startPostAlignment) && !(params.previousOutDir || params.merged)) {
+        if ((params.reportingOnly || params.startPostExtraction) && !(params.previousOutDir || params.merged)) {
             throwError("Must specify --previousOutDir when --reportingOnly is enabled or using an alternate startpoint")
         }
-        if(params.reportingOnly && params.startPostAlignment){
-            throwError("Cannot specify both --reportingOnly and --startPostAlignment")
+        if(params.reportingOnly && params.startPostExtraction){
+            throwError("Cannot specify both --reportingOnly and --startPostExtraction")
         }
         if (params.merged != false && params.previousOutDir != null) {
             throwError("Cannot specify both --previousOutDir and --merged")
@@ -101,7 +103,7 @@ class ParamLogger {
             inputOpts['bam1Dir'] = params.bam1Dir
             inputOpts['bam2Dir'] = params.bam2Dir
         }
-        if (params.reportingOnly || params.startPostAlignment) { inputOpts['previousOutDir'] = params.previousOutDir; inputOpts['merged'] = params.merged }
+        if (params.reportingOnly || params.startPostExtraction) { inputOpts['previousOutDir'] = params.previousOutDir; inputOpts['merged'] = params.merged }
         inputOpts['samples'] = params.samples
         inputOpts['genome'] = params.genome
         inputOpts['libStructure'] = params.libStructure

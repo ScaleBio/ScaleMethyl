@@ -9,7 +9,7 @@ dependencies:
   - bedtools=2.30.0
   - fastqc=0.12.1
   - multiqc=1.14
-  - samtools=1.15
+  - samtools=1.21
   - cutadapt=4.8
   - numpy=1.25.1
   - scipy=1.9.2
@@ -30,7 +30,6 @@ dependencies:
   - bwameth=0.2.7
   - scanpy=1.10.0
   - leidenalg=0.10.0
-
   - pip:
     - bsbolt==1.5.0
     - igraph==0.10.8

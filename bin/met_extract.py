@@ -99,7 +99,8 @@ def write_chr_parquet_bsbolt(bam: Path, chr: str, sample: str, threshold: float)
                 if xb.isnumeric():
                     continue  # skip reads without methylation calls
                 ch_count = xb.count("Y") + xb.count("Z")
-                if (ch_count / read.query_length) > threshold:
+                total_ch_count = xb.count("y") + xb.count("z") + ch_count
+                if total_ch_count > 0 and (ch_count / total_ch_count) > threshold:
                     high_ch_reads[read.qname.split(":")[-1]] += 1
                     continue  # skip reads with CH methylation greater than threshold
                 xb = re.findall(r"[xyzXYZ]|\d+", xb)
@@ -150,7 +151,6 @@ def get_methylation_context(bases: str, meth_status: bool, reverse: bool) -> str
 
 
 def extract_methylation(
-    qlength: int,
     ref_start: int,
     qname: str,
     refSeq: str,
@@ -158,10 +158,10 @@ def extract_methylation(
     x: int,
     y: int,
     ch_count: int,
-    threshold: float,
+    total_ch_count: int,
     reverse: bool,
     calls: dict,
-) -> int:
+) -> list:
     """
     Extract methylation calls from the read and reference sequence.
 
@@ -194,14 +194,14 @@ def extract_methylation(
         if not reverse:
             # Make sure we don't go out of bounds
             if y + 4 >= len(refSeq):
-                return ch_count
+                return [ch_count,total_ch_count]
 
             # y+i+2 to y+i+4 is 3 bases to test for context on the forward strand
             bases = refSeq[y + 2 : y + 5 : 1]
 
         else:
             if y + 2 >= len(refSeq):
-                return ch_count
+                return [ch_count,total_ch_count]
             # if y - 1 == -1, then the slicing breaks, so you have to index to the front
             if y - 1 < 0:
                 bases = refSeq[y + 2 :: -1]
@@ -218,14 +218,13 @@ def extract_methylation(
         if meth_state != "":
             if meth_state in ["Y", "Z"]:
                 ch_count += 1
-                # stop processing read if CH methylation greater than threshold
-                if (ch_count / qlength) > threshold:
-                    return ch_count
+            if meth_state in ["y", "z", "Y", "Z"]:
+                total_ch_count += 1
             calls["qname"].append(qname)
             calls["pos"].append(ref_start + y)
             calls["strand"].append("-" if reverse else "+")
             calls["xb"].append(meth_state)
-    return ch_count
+    return [ch_count,total_ch_count]
 
 
 def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: float, ref: Path) -> list:
@@ -261,6 +260,7 @@ def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: floa
                 temp_calls = {"qname": [], "pos": [], "strand": [], "xb": []}
                 num_reads += 1
                 ch_count = 0
+                total_ch_count = 0
                 if not read.cigarstring:
                     continue
                 seq = read.query_sequence.upper()
@@ -269,6 +269,18 @@ def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: floa
                 if start < 0:
                     continue
                 end = read.reference_start + read.reference_length + 4
+
+                # This code is due to an issue where the reference genome would return an error if too many processes try to access it at the same time
+                # A lockfile doesn't appear to work either
+                retries = 0
+                while chr not in fasta.references and retries < 5:
+                    retries += 1
+                    fasta.close()
+                    fasta = pysam.FastaFile(ref)
+                if retries == 5:
+                    raise ValueError(f"Reference {chr} not found in reference genome {ref}")
+
+                # get the reference sequence for the read
                 refSeq = str(fasta.fetch(chr, start, end).upper())
                 reverse = read.is_reverse
                 # x is the index for the read, y is the index for the reference genome; y+2 should follow x for cigar match
@@ -281,8 +293,7 @@ def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: floa
                     if y < 0:
                         continue
                     # extract methylation calls from the read and reference sequence
-                    ch_count = extract_methylation(
-                        read.query_length,
+                    [ch_count,total_ch_count] = extract_methylation(
                         read.reference_start,
                         read.qname,
                         refSeq,
@@ -290,12 +301,12 @@ def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: floa
                         x,
                         y,
                         ch_count,
-                        threshold,
+                        total_ch_count,
                         reverse,
                         temp_calls,
                     )
                     # stop processing read if CH methylation greater than threshold
-                    if (ch_count / read.query_length) > threshold:
+                    if total_ch_count > 0 and (ch_count / total_ch_count) > threshold:
                         high_ch_reads[read.qname.split(":")[-1]] += 1
                         high_ch = True
                         break
@@ -397,7 +408,7 @@ def met_extract(bam: Path, sample: str, threshold: float, nproc: int, contexts: 
             chr_high_ch_reads = p.starmap(
                 write_chr_parquet_bsbolt, zip(repeat(bam), chrs, repeat(sample), repeat(threshold))
             )
-        elif aligner == "bwa-meth":
+        elif aligner == "bwa-meth" or aligner == "parabricks":
             chr_high_ch_reads = p.starmap(
                 write_chr_parquet_bwa_meth, zip(repeat(bam), chrs, repeat(sample), repeat(threshold), repeat(ref))
             )

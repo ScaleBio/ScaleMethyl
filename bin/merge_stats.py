@@ -57,9 +57,9 @@ def accept_args() -> argparse.Namespace:
     parser.add_argument(
         "--aligner",
         default="bsbolt",
-        choices=["bsbolt", "bwa-meth"],
+        choices=["bsbolt", "bwa-meth", "parabricks"],
         type=str,
-        help="Aligner used for mapping. Options: bsbolt, bwa_meth",
+        help="Aligner used for mapping. Options: bsbolt, bwa_meth, parabricks",
     )
     parser.add_argument("--outDir", default=".", type=Path, help="Path to write concatenated files to")
     args = parser.parse_args()
@@ -268,9 +268,10 @@ def main():
     concat_cell_stats(args.sampleName, args.outDir, args.cellStatsPath)
     concat_fragment_histogram(args.sampleName, args.outDir, args.fragmentHistPath)
     concat_cellinfo(args.sampleName, args.outDir, args.cellInfoPath)
+
     if args.aligner == "bsbolt":
         build_mapping_stats_bsbolt(args.sampleName, args.outDir, args.mappingStatsPath)
-    elif args.aligner == "bwa-meth":
+    elif args.aligner == "bwa-meth" or args.aligner == "parabricks":
         build_mapping_stats_bwa(args.sampleName, args.outDir, args.mappingStatsPath)
     build_trimming_stats(args.sampleName, args.outDir, args.trimmingStatsPath)
 

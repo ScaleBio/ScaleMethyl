@@ -21,7 +21,7 @@ def parse_fasta(fasta_file: Path):
             if line.startswith(">"):
                 if seq_id:
                     yield (seq_id, "".join(sequence))
-                seq_id = line[1:]
+                seq_id = line[1:].split()[0]
                 sequence = []
             else:
                 sequence.append(line)

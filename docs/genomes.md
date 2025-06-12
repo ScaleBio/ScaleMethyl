@@ -7,8 +7,9 @@ Field |  Description | Required? | Example
 :-- | -- | -- | --
 name | The name of the species / genome-version | Required | human 
 bsbolt_index | Path to the BSBolt index directory | Required (one index required) | `/PATH/TO/bsbolt.ref` 
-bwa_index | Path to the BWA index directory | Required (one index required) | `/PATH/TO/bwa.ref` 
-bwa_fasta | Name of fasta file within BWA index | Required (with bwa_index) | `hg38.fa`
+bwa_index | Path to the bwa-meth (bwa-mem2) index directory | Required (one index required) | `/PATH/TO/bwa-meth/bwa-mem2.ref` 
+parabricks_index | Path to the parabricks (bwa-meth/bwa-mem) index directory | Required (one index required) | `/PATH/TO/bwa-meth/bwa-mem.ref`
+ref_fasta | Name of fasta file within bwa-meth/parabricks index | Required (with bwa_index) | `hg38.fa`
 genomeTiles | Path to binned genome sorted bed file for CG matrix | Required | `/PATH/TO/50kbp.bed` 
 genomeTilesCh | Path to binned genome sorted bed file for CH matrix | Required | `/PATH/TO/100kbp.bed` 
 filter_chrs | Path to tsv chromosome labels (mito, filter) to filter from deduplicated BAM | Required | `/PATH/TO/filter_chrs.tsv` 
@@ -21,9 +22,21 @@ backgroundWin | Path to bed sorted 200nt windows centered at TSS -1kb upstream |
     - a AWS S3 url (s3://path/to/genome)
 
 ## BSBolt index
-The provided BSBolt index needs to be built with BSBolt version `>= 1.5.0`. See the BSbolt [documentation](https://bsbolt.readthedocs.io/en/latest/bsb_index/) for additional options. An example command would be
+The BSBolt index needs to be built with BSBolt version `>= 1.5.0`. See the BSbolt [documentation](https://bsbolt.readthedocs.io/en/latest/bsb_index/) for additional options. An example command would be
 ```
 bsbolt Index -G {fasta reference} -DB {database output}
+```
+
+## bwa-meth index
+The bwa-meth index needs to be built with bwa-meth version `>= 0.2.7` and bwa-mem2 version `>= 2.2.1`. See the bwa-meth [documentation](https://github.com/brentp/bwa-meth) for additional options. An example command would be
+```
+bwameth.py index-mem2 {fasta reference}
+```
+
+## parabricks index
+The parabricks index needs to be built with bwa-meth version `>= 0.2.7` and bwa-mem version `>= 0.7.19`. See the bwa-meth [documentation](https://github.com/brentp/bwa-meth) for additional options. An example command would be
+```
+bwameth.py index {fasta reference}
 ```
 
 ## Annotation

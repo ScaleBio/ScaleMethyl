@@ -28,10 +28,15 @@ When starting from bam files refer to [mergeBam](mergeBam.md) for details on add
 
 A [file](samplesCsv.md) listing all samples in the analysis with their names, sample barcodes and optional sample settings
 
+### Aligner
+* `aligner : ("bwa-meth","bsbolt","parabricks"`
+
+The selection of the methylation aligner of choice. Options include  "bwa-meth" (default aligner - using bwa-mem2), "bsbolt" (original aligner), "parabricks" (GPU aligner - using bwa-mem). If parabricks is used, the dockerGPU profile must be used ( It does not currently support conda or singularity).
+
 ### Reference genome
 * `genome : "/genomes/grch38/genome.json"`
 
-Path to a [genome.json](genomes.md) file that contains the location of all sequence and index files as well as other parameters for the reference genome to use. 
+Path to a [genome.json](genomes.md) file that contains the location of all sequence and index files as well as other parameters for the reference genome to use. Make sure the path to the correct reference genome is present for your chosen aligner above. If using "bwa-meth" or "parabricks", the "ref_fasta" field in the genome.json file is also required.
 
 ## Optional and Advanced parameters
 See [nextflow.config](../nextflow.config) for a list of all available parameters. The file also includes nextflow system options (compute resource requirements, etc.).

@@ -541,7 +541,7 @@ class BuildDatapane:
         self.met_df = all_cells[all_cells["pass"] == "pass"].reset_index(drop=True)
         self.color_map = DatapaneUtils.define_color_map(all_cells)
 
-    def build_umap_plot(self, mtxFile: str, mtxBarcodes: list, writeDir: str) -> dp.Plot:
+    def build_umap_plot(self, mtxFile: str, met_passing: list, writeDir: str) -> dp.Plot:
 
         with gzip.open(mtxFile, "rb") as f:
             matrix = scipy.io.mmread(f)
@@ -561,7 +561,7 @@ class BuildDatapane:
         sc.tl.umap(adata)
 
         # Save the clusters to a TSV file
-        mtx_barcodes_df = pd.read_csv(mtxBarcodes, header=None, names=["barcode"])
+        mtx_barcodes_df = met_passing["cell_id"].to_frame()
         mtx_barcodes_df["cluster"] = adata.obs["leiden"].values
         mtx_barcodes_df.to_csv(writeDir / "csv" / f"{self.sample}.report_clusters.tsv", sep="\t", index=False)
 

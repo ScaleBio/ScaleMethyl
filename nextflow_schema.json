@@ -59,7 +59,7 @@
                 "samples"
             ]
         },
-        "aligner": {
+        "aligner options": {
             "title": "Pick aligner",
             "type": "object",
             "fa_icon": "fas fa-terminal",
@@ -71,7 +71,8 @@
                     "default": "bwa-meth",
                     "enum": [
                         "bwa-meth",
-                        "bsbolt"
+                        "bsbolt",
+                        "parabricks"
                     ]
                 }
             },
@@ -196,9 +197,22 @@
                     "type": "boolean",
                     "description": "Enable to rerun only reporting(fastqDir or runFolder not required)"
                 },
-                "startPostAlignment": {
+                "startPostExtraction": {
                     "type": "boolean",
-                    "description": "Enable to start the workflow from the matrix generation step if the user wishes to include additional outputs to their run or change the binning for downstream cell clustering without needing to re-align. The 'Dedup and Extract>Extract' and 'Metrics and Reporting>GenerateMetrics' processes need to completely finish before this option is available for subsequent runs. (Coverage Parquet files required in output folder)"
+                    "description": "Enable to start the workflow from the matrix generation step if the user wishes to include additional outputs to their run or change the binning for downstream cell clustering without needing to re-align/extract. The 'Dedup and Extract>Extract' and 'Metrics>GenerateMetrics' processes need to completely finish before this option is available for subsequent runs. (Coverage Parquet files required in output folder)"
+                }
+            }
+        },
+        "GPU options": {
+            "title": "GPU options",
+            "type": "object",
+            "fa_icon": "fas fa-sliders-h",
+            "description": "Provide options for GPU usage.",
+            "properties": {
+                "parabricksNumGpu": {
+                    "type": "integer",
+                    "description": "Number of GPU processes to use for parabricks aligner",
+                    "default": 1
                 }
             }
         }

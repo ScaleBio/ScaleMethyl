@@ -28,8 +28,10 @@ def loadGenome(json) {
 		genome.bsbolt_index = expandPath(genome.bsbolt_index, baseDir)
 	} else if(params.aligner=="bwa-meth") {
 		genome.bwa_index = expandPath(genome.bwa_index, baseDir)
+	} else if(params.aligner=="parabricks") {
+		genome.parabricks_index = expandPath(genome.parabricks_index, baseDir)
 	} else {
-		throwError("Invalid aligner specified in config: ${params.aligner}")
+		ParamLogger.throwError("Invalid aligner specified in config: ${params.aligner}")
 	}
 	genome.filter_chrs = expandPath(genome.filter_chrs, baseDir)
 	if(genome.genomeTileBlackList) {
@@ -43,7 +45,7 @@ def loadGenome(json) {
 		genome.genomeTiles = expandPath(genome.genomeTiles, baseDir)
 	}
 	if(!genome.genomeTiles && !params.windowTileSizeCG) {
-		throwError("No genomeTiles in genome.json or windowTileSizeCG in config set")
+		ParamLogger.throwError("No genomeTiles in genome.json or windowTileSizeCG in config set")
 	}
 	if(genome.genomeTilesCH) {
 		if(params.windowTileSizeCH) {
@@ -53,7 +55,7 @@ def loadGenome(json) {
 		genome.genomeTilesCh = expandPath(genome.genomeTilesCh, baseDir)
 	}
 	if(!genome.genomeTilesCH && !params.windowTileSizeCH) {
-		throwError("No genomeTilesCH in genome.json or windowTileSizeCH in config set")
+		ParamLogger.throwError("No genomeTilesCH in genome.json or windowTileSizeCH in config set")
 	}
 	if(genome.chromSizes) {
 		genome.chromSizes = expandPath(genome.chromSizes, baseDir)
@@ -201,7 +203,6 @@ script:
 """
 }
 
-
 workflow {
 	// Initialize ParamLogger class in lib/ParamLogger.groovy
 	// Pretty prints select parameters for a run and initializes a logger
@@ -216,8 +217,12 @@ workflow {
 		// Uses aligner reference fasta to create a chrom.sizes file for matrix generation
 		if(params.aligner == "bsbolt") {
 			faFile = genome.bsbolt_index.resolve("BSB_ref.fa")
+		} else if(params.aligner == "bwa-meth") {
+			faFile = genome.bwa_index.resolve(genome.ref_fasta)
+		} else if(params.aligner == "parabricks") {
+			faFile = genome.parabricks_index.resolve(genome.ref_fasta)
 		} else {
-			faFile = genome.bwa_index.resolve(genome.bwa_fasta)
+			ParamLogger.throwError("Invalid aligner specified in config: ${params.aligner}")
 		}
 		chromSizeFile = null
 		if(genome.chromSizes) {
@@ -253,8 +258,7 @@ workflow {
 	metrics = null
 
 	// If Matrix Checkpointing is enabled or reporting only is checked, start from matrix generation
-	if (!params.startPostAlignment && !params.reportingOnly) {
-
+	if (!params.startPostExtraction && !params.reportingOnly) {
 		// Indicates starting from bam files
 		if (params.bam1Dir != null && params.bam2Dir != null) {
 			// Module that merges per TN5 bam files in two aligner output directories
@@ -269,11 +273,12 @@ workflow {
 			dedupBamInput = INPUT_READS.out.alignedBam
 			// Trimming and mapping stats only exist when starting from fastq files or a runfolder
 			trimmingAndMapping = true
-		}
+		}		
+		
 		// Module that deduplicates aligned bam files and extracts methylation stats
 		DEDUP_AND_EXTRACT(dedupBamInput, genome)
 		threshold = samples.map{[it.sample, toIntOr0(it.threshold)]}
-		
+
 		if (trimmingAndMapping) {
 			// Collect all aligner log files for a sample
 			sampleMapStats = INPUT_READS.out.alignLog.map({it[1]}).map { file ->
@@ -297,7 +302,7 @@ workflow {
 			// if splitFastq is false only do the latter
 			// Having separate MergeStats process facilitates rerunning reporting by relying on only the outputs of this process
 			MergeStats(reportStats)
-			
+
 			trimmingAndMappingStats = MergeStats.out.trimmingAndMappingStats
 		}
 		else {
@@ -311,9 +316,10 @@ workflow {
 			demuxMetrics = samples.map{tuple(it.libName, [])}.unique()
 			// Merge per well coordinate files and format them to feed into reporting
 			MergeStats(reportStats)
-	
+
 			trimmingAndMappingStats = null
 		}
+		
 		
 		mergedReportStats = MergeStats.out.mergedStats
 		mergedReportStats = mergedReportStats.join(threshold)
@@ -414,7 +420,7 @@ workflow {
 		metrics = METRICS(metricInput, fragHist, dedupStats, demuxMetrics, null, tssEnrich, null, libJson, false, true, genome, samples)
 		trimmingAndMapping = false
 		// If Matrix Checkpointing is enabled, start from matrix generation
-		if(params.startPostAlignment) {
+		if(params.startPostExtraction) {
 			// if using previous output directory, use the previous allCells.csv and met_ files
 			if(params.previousOutDir != null) {
 				// allCells: [sample name, list of allCells files]

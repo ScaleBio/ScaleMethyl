@@ -64,12 +64,12 @@ def accept_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--mtxFile",
-        type=Path,
+        type=str,
         help="Path to mtx.gz file for umap and clustering",
     )
     parser.add_argument(
         "--mtxBarcodes",
-        type=Path,
+        type=str,
         help="Path to barcode file for umap and clustering",
     )
 
@@ -173,7 +173,7 @@ def main():
             )
         )
     if args.mtxFile:
-        dp_umap_tab.append(datapane_obj.build_umap_plot(args.mtxFile, args.mtxBarcodes, writeDir))
+        dp_umap_tab.append(datapane_obj.build_umap_plot(args.mtxFile, met_passing, writeDir))
 
         dp_page.append(
             dp.Page(
