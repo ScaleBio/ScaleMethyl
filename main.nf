@@ -52,7 +52,7 @@ def loadGenome(json) {
 			log.warn("genomeTilesCH and windowTileSizeCH are both set. Ignoring windowTileSizeCH.")
 			params.windowTileSizeCH = null
 		}
-		genome.genomeTilesCh = expandPath(genome.genomeTilesCh, baseDir)
+		genome.genomeTilesCH = expandPath(genome.genomeTilesCH, baseDir)
 	}
 	if(!genome.genomeTilesCH && !params.windowTileSizeCH) {
 		ParamLogger.throwError("No genomeTilesCH in genome.json or windowTileSizeCH in config set")
