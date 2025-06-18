@@ -14,6 +14,7 @@ import duckdb
 import argparse
 from multiprocessing import Pool
 from itertools import repeat
+from pyfaidx import Fasta
 
 BATCH_SIZE = 10_000
 
@@ -231,7 +232,7 @@ def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: floa
     """
     Write methylation calls to a Parquet file for a single chromosome
     """
-    fasta = pysam.FastaFile(ref)
+    fasta = Fasta(ref)
     with pysam.AlignmentFile(bam, "rb") as samfile:
         high_ch_reads = defaultdict(int)
         schema = [
@@ -270,18 +271,8 @@ def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: floa
                     continue
                 end = read.reference_start + read.reference_length + 4
 
-                # This code is due to an issue where the reference genome would return an error if too many processes try to access it at the same time
-                # A lockfile doesn't appear to work either
-                retries = 0
-                while chr not in fasta.references and retries < 5:
-                    retries += 1
-                    fasta.close()
-                    fasta = pysam.FastaFile(ref)
-                if retries == 5:
-                    raise ValueError(f"Reference {chr} not found in reference genome {ref}")
-
                 # get the reference sequence for the read
-                refSeq = str(fasta.fetch(chr, start, end).upper())
+                refSeq = str(fasta[chr][start:end].seq).upper()
                 reverse = read.is_reverse
                 # x is the index for the read, y is the index for the reference genome; y+2 should follow x for cigar match
                 pairs = read.get_aligned_pairs(matches_only=True)

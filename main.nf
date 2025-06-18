@@ -3,6 +3,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
 include { INPUT_READS } from './modules/input_reads.nf'
+include { ALIGNMENT } from './modules/alignment.nf'
 include { INPUT_BAM_READS } from './modules/input_bam_reads.nf'
 include { METRICS } from './modules/metrics.nf'
 include { REPORTING } from './modules/reporting.nf'
@@ -269,8 +270,10 @@ workflow {
 		}
 		else {
 			// Module that deals with input reads demux, qc, trimming and mapping
-			INPUT_READS(samples, RegularizeSamplesCsv.out, libJson, params.fastqDir, params.runFolder, genome)
-			dedupBamInput = INPUT_READS.out.alignedBam
+			INPUT_READS(samples, RegularizeSamplesCsv.out, libJson, params.fastqDir, params.runFolder)
+			ALIGNMENT(INPUT_READS.out.trimFastq, genome)
+			// Aligned bam files to be used as input for deduplication and methylation
+			dedupBamInput = ALIGNMENT.out.alignedBam
 			// Trimming and mapping stats only exist when starting from fastq files or a runfolder
 			trimmingAndMapping = true
 		}		
@@ -281,7 +284,7 @@ workflow {
 
 		if (trimmingAndMapping) {
 			// Collect all aligner log files for a sample
-			sampleMapStats = INPUT_READS.out.alignLog.map({it[1]}).map { file ->
+			sampleMapStats = ALIGNMENT.out.alignLog.map({it[1]}).map { file ->
 				def ns = file.getName().toString().tokenize('.')
 				return tuple(ns.get(0), file)
 			}.groupTuple()

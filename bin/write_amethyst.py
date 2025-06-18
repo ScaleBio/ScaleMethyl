@@ -13,7 +13,7 @@ from reporting.reporting import Utils
 
 def write_amethyst(met_cg: list[Path], met_ch: list[Path], barcodes: list, sample: str):
     """
-    Writes Amethyst hdf5 files
+    Writes Amethyst hdf5 files with this file structure: https://github.com/lrylaarsdam/amethyst/raw/main/images/h5structure.png?raw=true
 
     Args:
         met_cg: List of Parquet files containing CG context methylation calls.
@@ -29,6 +29,7 @@ def write_amethyst(met_cg: list[Path], met_ch: list[Path], barcodes: list, sampl
         if met_ch != []:
             mets_list.append(met_ch)
             context_groups.append(f.create_group("CH"))
+        
         for bc in barcodes:
             for group, files in zip(context_groups, mets_list):
                 file_names = [file.name for file in files]
@@ -56,7 +57,9 @@ def write_amethyst(met_cg: list[Path], met_ch: list[Path], barcodes: list, sampl
                 )
                 for field in cov.keys():
                     arr[field] = cov[field]
-                group.create_dataset(bc, data=arr, compression="gzip", compression_opts=9)
+                post = group.create_group(bc)
+                # base-level values are given the "1" dataset name
+                post.create_dataset("1", data=arr, compression="gzip", compression_opts=9)
 
 
 def main():

@@ -1,4 +1,7 @@
 # Version 1.2
+## 1.2.6
+* Release candidate for 1.3
+    - Includes Amethyst output for v1.0.0, update your Amethyst to 1.0.0 to use final output.
 ## 1.2.5
 * Development version for 1.3 (development branch only)
     - Includes BWA-meth/parabricks aligner and reporting improvements

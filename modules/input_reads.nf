@@ -9,7 +9,6 @@
 *     BarcodeDemux
 *     MergeDemux
 *     Trim
-*     Align
 */
 
 def constructMatchingKey(fname) {
@@ -257,7 +256,6 @@ take:
     libJson // Library structure definition file
     fastqDir // Directory containing fastq files
     runFolder // Directory containing sequencing run data
-    genome // Reference genome
 
 main:
     // Combination of libName and samples in a channel
@@ -403,38 +401,8 @@ main:
     // if splitFastq = false: Trim.out.fastq -> [sample name, [trimmed fastq files for that sample]]
     Trim.out.fastq.dump(tag: 'Trim.out.fastq')
 
-    // Run bsbolt(aligner) on trimmed fastq files
-    if(params.aligner == "bsbolt") {
-        AlignOut=AlignBsBolt(genome.bsbolt_index, Trim.out.fastq)
-        AlignOutBams = AlignOut.bam
-        AlignOutLogs = AlignOut.log
-    } else if (params.aligner == "bwa-meth") {
-        AlignOut=AlignBWAMeth(genome.bwa_index, Trim.out.fastq, genome.ref_fasta)
-        AlignOutBams = AlignOut.bam
-        AlignOutLogs = AlignOut.log
-    } else if (params.aligner == "parabricks") {
-        // collate the samples into groups
-        sampleChunks = Trim.out.fastq.collect(flat:false)
-                                    .map{ items -> 
-                                    def chunkSize = Math.ceil(items.size() / params.parabricksNumGpu) as int
-                                    items.collate(chunkSize) }
-                                    .flatMap().dump(tag:'sampleChunks')
-        sampleNames = sampleChunks.map{ it.collect{it[0]} }
-        fastqNamesR1 = sampleChunks.map{ it.collect{it[1][0]} }
-        fastqNamesR2 = sampleChunks.map{ it.collect{it[1][1]} }
-        AlignParabricks(genome.parabricks_index, fastqNamesR1, fastqNamesR2, sampleNames, genome.ref_fasta)
-        AlignOutBams = AlignParabricks.out.bam.flatten().map{file -> tuple(file.getName().toString().tokenize('.').get(0)+"."+file.getName().toString().tokenize('.').get(1), file)}
-        AlignOutLogs = AlignParabricks.out.log.flatten().map{file -> tuple(file.getName().toString().tokenize('.').get(0)+"."+file.getName().toString().tokenize('.').get(1), file)}
-        
-    } else {
-        ParamLogger.throwError("Invalid aligner specified. Please choose from bsbolt, bwa-meth or parabricks")
-    }
-    
-
 emit:
     trimLog = Trim.out.stats // cutadapt statistics
     trimFastq = Trim.out.fastq // Trimmed fastq files
     mergedBcParserMetrics = MergeDemux.out.barcodeMetrics // bcParser metrics for all libName
-    alignedBam = AlignOutBams // Post alinger aligned bams
-    alignLog = AlignOutLogs // aligner log file
 }
