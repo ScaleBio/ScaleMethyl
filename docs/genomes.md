@@ -9,12 +9,12 @@ name | The name of the species / genome-version | Required | human
 bsbolt_index | Path to the BSBolt index directory | Required (one index required) | `/PATH/TO/bsbolt.ref` 
 bwa_index | Path to the bwa-meth (bwa-mem2) index directory | Required (one index required) | `/PATH/TO/bwa-meth/bwa-mem2.ref` 
 parabricks_index | Path to the parabricks (bwa-meth/bwa-mem) index directory | Required (one index required) | `/PATH/TO/bwa-meth/bwa-mem.ref`
-ref_fasta | Name of fasta file within bwa-meth/parabricks index | Required (with bwa_index) | `hg38.fa`
-genomeTiles | Path to binned genome sorted bed file for CG matrix | Required | `/PATH/TO/50kbp.bed` 
-genomeTilesCh | Path to binned genome sorted bed file for CH matrix | Required | `/PATH/TO/100kbp.bed` 
+ref_fasta | Name of fasta file within bwa-meth/parabricks index | Required (with bwa_index or parabricks_index) | `hg38.fa`
+genomeTiles | Path to binned genome sorted bed file for CG matrix | Optional | `/PATH/TO/50kbp.bed` 
+genomeTilesCh | Path to binned genome sorted bed file for CH matrix | Optional | `/PATH/TO/100kbp.bed` 
 filter_chrs | Path to tsv chromosome labels (mito, filter) to filter from deduplicated BAM | Required | `/PATH/TO/filter_chrs.tsv` 
-tssWin | Path to bed sorted 200nt windows centered at TSS | Required | `/PATH/TO/tss.bed` 
-backgroundWin | Path to bed sorted 200nt windows centered at TSS -1kb upstream | Required | `/PATH/TO/background.bed` 
+tssWin | Path to bed sorted 200nt windows centered at TSS | Required unless runTssEnrich: false | `/PATH/TO/tss.bed` 
+backgroundWin | Path to bed sorted 200nt windows centered at TSS -1kb upstream | Required unless runTssEnrich: false | `/PATH/TO/background.bed` 
 
 * All files (`bsbolt_index`, `bins`, ...) can be specified either as
     - an absolute path (`/path/to/genome`)
