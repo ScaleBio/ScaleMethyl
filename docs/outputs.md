@@ -26,6 +26,7 @@ Here is a description of all of the output files that are saved outside the work
 | `report` | | QC reports and statistics |
 | `report/sample_reports/<sample>` | `<sample>.report.html` | An interactive standalone HTML report including key metrics/figures for each sample |
 |                  | `csv/<sample>.*.csv` | Sample metrics in csv format |
+|                  | `csv/<sample>.report_clusters.tsv` | cluster IDs for each passing barcode for umap in sample report
 | `report/library_report/<library>` | `library.<libName>.report.html` | Barcode summary and demultiplexing statistics for the whole library (potentially multiple samples) |
 |                  | `csv/<libName>.combinedPassingCellStats.csv` | Key metrics for passing cells for the whole library |
 | `samples` | | Single-cell methylation outputs |

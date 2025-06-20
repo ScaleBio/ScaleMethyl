@@ -6,6 +6,8 @@ The ScaleBio Seq Suite: Methylation workflow requires a number of dependencies t
 If your system supports [docker containers](https://www.docker.com/), this is the recommended way to handle all dependencies for the workflow. We provide pre-built docker containers and the workflow is setup to automatically use them.
 This is enabled by adding `-profile docker` to the nextflow command-line.
 
+If you'd like to use the parabricks aligner, this must be changed to `-profile dockerGPU` to provide the aligner access to the system GPU.
+
 If your system does not support *docker*, [singularity](https://sylabs.io/docs/) is an alternative that is enabled on many HPC clusters (2.3.x or newer). Setting `-profile singularity` will use the _singularity_ engine for all dependencies. The environment variable `NXF_SINGULARITY_CACHEDIR` can be used to control where singularity images are stored. This should be a writable location that is available on all compute nodes. Similarly `TMPDIR` should be changed from the default `/tmp` to a location writable from the container if necessary.
 
 See [Nextflow Containers](https://www.nextflow.io/docs/latest/container.html) for details and additional configuration options. 

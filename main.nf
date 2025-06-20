@@ -367,29 +367,30 @@ workflow {
 		// Else, use the output directory to merge metrics
 		} else {
 			// Set output directory to the previous output directory if it exists, otherwise use the current output directory
-			outDir = file(params.outDir)
 			if(params.previousOutDir != null) {
-				outDir = file(params.previousOutDir)
+				outDir = params.previousOutDir
+			} else {
+				outDir = params.outDir
 			}
 
 			// metricInput: [sample name, cell_stats file, cellInfo file, threshold]
 			metricInput = samples.map{tuple(
 				it.sample,
-				file("${outDir}/metrics_for_reporting/${it.sample}.cell_stats.csv", checkIfExists:true),
-				file("${outDir}/metrics_for_reporting/${it.sample}.cellInfo.csv", checkIfExists:true),
+				file("${outDir}/metrics_for_reporting/${it.sample}.cell_stats.csv"),
+				file("${outDir}/metrics_for_reporting/${it.sample}.cellInfo.csv"),
 				toIntOr0(it.threshold)
 			)}
 
 			// fragHist: [sample name, fragment_hist file]
 			fragHist = samples.map{tuple(
 				it.sample,
-				file("${outDir}/metrics_for_reporting/${it.sample}.fragment_hist.csv", checkIfExists:true)
+				file("${outDir}/metrics_for_reporting/${it.sample}.fragment_hist.csv")
 			)}
 
 			// dedupStats: [sample name, dedup_stats file]
 			dedupStats = samples.map{tuple(
 				it.sample,
-				file("${outDir}/metrics_for_reporting/${it.sample}.dedup_stats.csv", checkIfExists:true)
+				file("${outDir}/metrics_for_reporting/${it.sample}.dedup_stats.csv")
 			)}
 
 			// tssEnrich: [sample name, tss_enrich file]

@@ -29,9 +29,9 @@ When starting from bam files refer to [mergeBam](mergeBam.md) for details on add
 A [file](samplesCsv.md) listing all samples in the analysis with their names, sample barcodes and optional sample settings
 
 ### Aligner
-* `aligner : ("bwa-meth","bsbolt","parabricks"`
+* `aligner : ("bwa-meth","bsbolt","parabricks")`
 
-The selection of the methylation aligner of choice. Options include  "bwa-meth" (default aligner - using bwa-mem2), "bsbolt" (original aligner), "parabricks" (GPU aligner - using bwa-mem). If parabricks is used, the dockerGPU profile must be used ( It does not currently support conda or singularity).
+The selection of the methylation aligner of choice. Options include  "bwa-meth" (default aligner - using bwa-mem2), "bsbolt" (original aligner), "parabricks" (GPU aligner - using bwa-mem). If parabricks is used, the dockerGPU profile must be used (It does not currently support conda or singularity).
 
 ### Reference genome
 * `genome : "/genomes/grch38/genome.json"`
@@ -44,11 +44,11 @@ See [nextflow.config](../nextflow.config) for a list of all available parameters
 #### Optional file outputs 
 * `fastqOut` controls publishing fastq files from bcl-convert and bcParser barcode corrected sample demultiplexed fastqs to the output directory. If fastq files are not needed for custom analysis, disabling fastq output will save compute time and storage space. 
 * `trimOut` controls publishing post barcode demultiplexed trimmed fastq files to the output directory in the `trim` folder. 
-* Setting `bamOut` to false will suppress alignment (.bam file) output from bsbolt. Also setting `bamDedupOut` to false will suppress deduplicated bam file output from scDedup. If the user does not specifically need bam files for custom downstream analysis, disabling BAM output will save compute time and storage space.
+* `bamOut` controls .bam file output from the chosen aligner. Also, `bamDedupOut` controls deduplicated bam file output from scDedup. Enabling either of these options will increase compute time and output file storage space.
 * `bamMergeOut` controls publishing of merged bam files to the output directory when starting the workflow from bam files, see [mergeBam](mergeBam.md).
 * `covOut` controls publishing methylation extraction files to the output `cov` directory with per-sample, per-context (CG/CH) files in bismark .cov format. These files contain columns for the `chr`, `pos`, `percent_methylated`, `methylated_count` and `unmethylated_count` columns.
 * `allcOut` will produce per-barcode methylation call files for analysis by the [ALLCools](https://lhqing.github.io/ALLCools/intro.html) package, with columns `chr`, `pos`, `strand`, `context`, `mc`, `cov`, `methylated` as described [here](https://lhqing.github.io/ALLCools/start/input_files.html#columns-in-allc-file).
-* `amethystOut` will create and publish HDF5 files to the output directory with per-cell per-context methylation calls for analysis with [Amethyst](https://github.com/lrylaarsdam/amethyst).
+* `amethystOut` will create and publish HDF5 files to the output directory with per-cell per-context methylation calls for analysis with [Amethyst](https://github.com/lrylaarsdam/amethyst) v.1.0.0+. Files from runs prior to version 1.3 can be converted to the new Amethyst 1.0.0+ format through a utility provided with Amethyst.
 
 #### Cell calling 
 The default cell thresholding algorithm used by the ScaleMethyl workflow imposes a one-dimensional threshold on the coordinate collapsed uniquely mapped reads per cell barcode.
@@ -59,7 +59,7 @@ Parameters:
 * The read-count of top cells, topCount, is estimated as the `topCellPercentile` [99] of read-counts of cell-barcodes above `minUniqCount` 
 * The cell threshold is set a fixed `minCellRatio` [20] of the `topCount`; `topCount` / `minCellRatio` 
 
-You can adjust `--minUniqCount`, `--topCellPercentile`, `--minCellRatio` in the runParams.yml. These can be overridden by providing the threshold column in the [samples.csv](samplesCsv.md).
+You can adjust `--minUniqCount`, `--topCellPercentile`, `--minCellRatio` in the runParams.yml or on the command line. These can be overridden by providing the threshold column in the [samples.csv](samplesCsv.md).
 
 #### Filter cells by percent unique reads per barcode
 In the sample reports, you will find our plot of unique reads vs percent unique reads compared (compared to total reads per barcode) `report/<sample>/png/<sample>.complexityTotal.png`. To filter passing cells for a range in the percent unique reads (x-axis) in addition to the unique read threshold, provide these options in addition to cell calling options above:
@@ -67,11 +67,10 @@ In the sample reports, you will find our plot of unique reads vs percent unique 
 * `--maxUniqTotal` [100] maximum percent unique reads per barcode for cell calling.
 
 #### Read QC
-* `--chReadsThreshold` [10] Reads with greater than this percentage CH methylation will be discarded as failing bisulfite-conversion.
+* `--chReadsThreshold` [50] Reads with greater than this percentage CH methylation will be discarded as failing bisulfite-conversion.
 
 #### Rerunning report generation with a different threshold
-
-This assumes that you have ran the workflow and would like to apply a different threshold than being called by the cell thresholding algorithm.
+This assumes that you have run the workflow and would like to apply a different threshold than being called by the cell thresholding algorithm.
 
 If you resume the run with a samples.csv that you have added the threshold to (by adding the threshold column to the samples csv), it will rerun the workflow from the beginning. However, these matrixes can be easily filtered for the passing cells if needed.
 
@@ -89,6 +88,9 @@ Analysis is by default executed highly parallel, controlled by the `splitFastq` 
 When starting from fastq files, the first workflow steps are parallelized per set of input fastq files, so it is important to have the data in multiple input fastq files for better performance; see [fastqGeneration](fastqGeneration.md)
 
 Since single-cell methylation analysis is quite compute intensive, our recommendation is to keep `splitFastq` set to true. The caveat is that this configuration will launch a large number of compute jobs in parallel for each sample, so your infrastructure must be able to support that.
+
+### Parabricks parallel execution
+The Parabricks NVIDIA GPU aligner requires at least one GPU present to function. Multiple GPU machine instances from AWS through a scheduler like Seqera can be utilized for parallel execution by including the `parabricksNumGpu` option. Docker doesn't currently allow splitting of multiple GPUs on one machine/instance in an automated way, and we are looking into a solution for this in an upcoming version. If in doubt, continue to use the default: `parabricksNumGpu: 1`.
 
 ### Library Structure Definition
 * `libStructure : "lib.json"`

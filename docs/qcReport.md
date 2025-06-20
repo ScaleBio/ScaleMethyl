@@ -53,3 +53,6 @@ Cell-barcodes passing the unique read threshold for each sample
 ## Barcodes Tab
 In the first row, the heatmap on the left shows the number of reads with each i5 barcode, and the heatmap on the right shows the number of passing cells with each i5 barcode. \
 In the second row, the heatmap on the left shows the number of reads with each i7 barcode, and the heatmap on the right shows the number of passing cells with each i7 barcode.
+
+## UMAP tab
+Reports include a default umap on the 20,000 most variable windows calculated in the MATRIX_GENERATION step with nearest neighbor clustering with knn = min(100, # of passing cells - 1).
