@@ -21,9 +21,12 @@ output:
 	
 	tuple val(sample), path("${sample}/png")
 	tuple val(sample), path("${sample}/csv/${sample}.report_clusters.tsv"), optional: true
+	tuple val(sample), path("${sample}.tss_enrich.csv"), emit: mergedTssEnrich, optional: true
+
 publishDir { outDir }, pattern: "${sample}/*.html", mode:'copy'
 publishDir { outDir }, pattern: "${sample}/png", mode:'copy'
 publishDir { outDir }, pattern: "${sample}/csv/${sample}.report_clusters.tsv", mode:'copy'
+publishDir file(params.outDir) / "metrics_for_reporting", pattern: "${sample}.tss_enrich.csv", mode:'copy'
 tag "$sample"
 label 'process_medium'
 script:

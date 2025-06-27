@@ -50,7 +50,6 @@ class ParamLogger {
         if (params.genome == null || params.genome == true) {
             throwError("Must specify --genome")
         }
-        def sum = 0
         if ([params.fastqDir, params.runFolder].count { it } > 1) {
             throwError("One input type must be specified at a time: --runFolder, --fastqDir.")
         }
