@@ -21,22 +21,22 @@ backgroundWin | Path to bed sorted 200nt windows centered at TSS -1kb upstream |
     - a relative path starting from the location of the `genome.json` file (`genes/bins.bed`)
     - a AWS S3 url (s3://path/to/genome)
 
-## BSBolt index
-The BSBolt index needs to be built with BSBolt version `>= 1.5.0`. See the BSbolt [documentation](https://bsbolt.readthedocs.io/en/latest/bsb_index/) for additional options. An example command would be
-```
-bsbolt Index -G {fasta reference} -DB {database output}
-```
-
-## bwa-meth index
+## bwa-meth index (default)
 The bwa-meth index needs to be built with bwa-meth version `>= 0.2.7` and bwa-mem2 version `>= 2.2.1`. See the bwa-meth [documentation](https://github.com/brentp/bwa-meth) for additional options. An example command would be
 ```
 bwameth.py index-mem2 {fasta reference}
 ```
 
-## parabricks index
+## parabricks index (GPU)
 The parabricks index needs to be built with bwa-meth version `>= 0.2.7` and bwa-mem version `>= 0.7.19`. See the bwa-meth [documentation](https://github.com/brentp/bwa-meth) for additional options. An example command would be
 ```
 bwameth.py index {fasta reference}
+```
+
+## BSBolt index (legacy)
+The BSBolt index needs to be built with BSBolt version `>= 1.5.0`. See the BSbolt [documentation](https://bsbolt.readthedocs.io/en/latest/bsb_index/) for additional options. An example command would be
+```
+bsbolt Index -G {fasta reference} -DB {database output}
 ```
 
 ## Annotation
