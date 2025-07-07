@@ -47,17 +47,17 @@ All genomic non-overlapping bins in the provided _genomeTiles_ and _genomeTilesC
 ## Pre-built genomes
 Pre-built reference genomes are available for download:
 * Human: 
-    - bwa-meth (default): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38-bwa.tgz
-    - parabricks (GPU): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38-parabricks.tgz
-    - bsbolt (legacy): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38-bsbolt.tgz
+    - bwa-meth (default): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/grch38-bwa.tgz
+    - parabricks (GPU): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/grch38-parabricks.tgz
+    - bsbolt (legacy): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/grch38-bsbolt.tgz
 * Mouse: 
-    - bwa-meth (default): http://scale.pub.s3.amazonaws.com/genomes/methyl/mm39-bwa.tgz
-    - parabricks (GPU): http://scale.pub.s3.amazonaws.com/genomes/methyl/mm39-parabricks.tgz
-    - bsbolt (legacy): http://scale.pub.s3.amazonaws.com/genomes/methyl/mm39-bsbolt.tgz
+    - bwa-meth (default): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/mm39-bwa.tgz
+    - parabricks (GPU): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/mm39-parabricks.tgz
+    - bsbolt (legacy): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/mm39-bsbolt.tgz
 * Human/Mouse Barnyard: 
-    - bwa-meth (default): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38_mm39-bwa.tgz
-    - parabricks (GPU): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38_mm39-parabricks.tgz
-    - bsbolt (legacy): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38_mm39-bsbolt.tgz
+    - bwa-meth (default): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/grch38_mm39-bwa.tgz
+    - parabricks (GPU): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/grch38_mm39-parabricks.tgz
+    - bsbolt (legacy): https://s3.us-east-2.amazonaws.com/scale.pub/genomes/methyl/grch38_mm39-bsbolt.tgz
 
 Download these to your analysis server, unpack them and then use e.g.
 `--genome /PATH/TO/unpacked/folder/genome.json`
