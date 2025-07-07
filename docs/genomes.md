@@ -45,11 +45,20 @@ All genomic non-overlapping bins in the provided _genomeTiles_ and _genomeTilesC
 * To pass a different size bins (default 250kb) for CH matrix, pass to _genomeTilesCh_ in the `genome.json`.
 
 ## Pre-built genomes
-Pre-build reference genome for human is available for download:
-* Human: http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38.tgz
-* Mouse: http://scale.pub.s3.amazonaws.com/genomes/methyl/mm39.tgz
-* Human/Mouse Barnyard: http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38_mm39.tgz
+Pre-built reference genomes are available for download:
+* Human: 
+    - bwa-meth (default): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38-bwa.tgz
+    - parabricks (GPU): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38-parabricks.tgz
+    - bsbolt (legacy): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38-bsbolt.tgz
+* Mouse: 
+    - bwa-meth (default): http://scale.pub.s3.amazonaws.com/genomes/methyl/mm39-bwa.tgz
+    - parabricks (GPU): http://scale.pub.s3.amazonaws.com/genomes/methyl/mm39-parabricks.tgz
+    - bsbolt (legacy): http://scale.pub.s3.amazonaws.com/genomes/methyl/mm39-bsbolt.tgz
+* Human/Mouse Barnyard: 
+    - bwa-meth (default): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38_mm39-bwa.tgz
+    - parabricks (GPU): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38_mm39-parabricks.tgz
+    - bsbolt (legacy): http://scale.pub.s3.amazonaws.com/genomes/methyl/grch38_mm39-bsbolt.tgz
 
 Download these to your analysis server, unpack them and then use e.g.
-`--genome /PATH/TO/grch38/grch38.json`
+`--genome /PATH/TO/unpacked/folder/genome.json`
 
