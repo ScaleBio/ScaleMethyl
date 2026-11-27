@@ -273,10 +273,12 @@ def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: floa
 
                 # get the reference sequence for the read
                 refSeq = str(fasta[chr][start:end].seq).upper()
-                reverse = read.is_reverse
+                # Bisulfite strand of the original fragment, shared by both mates: bwa-meth sets YD:Z:f
+                # (C->T, original top strand) or YD:Z:r (G->A, original bottom strand) on both reads of a pair.
+                # read.is_reverse is the orientation of this mate only and is inverted for read 2.
+                reverse = read.get_tag("YD") == "r" if read.has_tag("YD") else read.is_reverse
                 # x is the index for the read, y is the index for the reference genome; y+2 should follow x for cigar match
                 pairs = read.get_aligned_pairs(matches_only=True)
-                high_ch = False
                 for pair in pairs:
                     x = pair[0]
                     y = pair[1] - read.reference_start
@@ -296,12 +298,11 @@ def write_chr_parquet_bwa_meth(bam: Path, chr: str, sample: str, threshold: floa
                         reverse,
                         temp_calls,
                     )
-                    # stop processing read if CH methylation greater than threshold
-                    if total_ch_count > 0 and (ch_count / total_ch_count) > threshold:
-                        high_ch_reads[read.qname.split(":")[-1]] += 1
-                        high_ch = True
-                        break
-                if high_ch:
+                # Drop the read if more than `threshold` of all its CH calls are methylated (failed
+                # bisulfite conversion). The ratio is checked once, over the whole read: a check after
+                # every call dropped reads whose first CH calls were methylated (1/1 = 100%)
+                if total_ch_count > 0 and (ch_count / total_ch_count) > threshold:
+                    high_ch_reads[read.qname.split(":")[-1]] += 1
                     continue
                 else:
                     calls["qname"].extend(temp_calls["qname"])
@@ -454,9 +455,11 @@ def met_extract(bam: Path, sample: str, threshold: float, nproc: int, contexts: 
 
     # Add high CH reads stats to cellInfo.txt
     cell_info_df = pl.read_csv(f"{sample}.cellInfo.txt", separator="\t")
-    high_ch_reads = {}
+    # Sum the per-chromosome counts: a cell has high-CH reads on many chromosomes
+    high_ch_reads = defaultdict(int)
     for high_ch in chr_high_ch_reads:
-        high_ch_reads.update(high_ch)
+        for cell, count in high_ch.items():
+            high_ch_reads[cell] += count
     if high_ch_reads:
         high_ch_df = pl.DataFrame({"CellID": high_ch_reads.keys(), "CH_high": high_ch_reads.values()})
         cell_info_df = cell_info_df.join(high_ch_df, on="CellID", how="left")

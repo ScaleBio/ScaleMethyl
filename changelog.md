@@ -1,3 +1,8 @@
+# Unreleased
+* Fixes to methylation extraction with BWA-meth/parabricks (`met_extract.py`). Re-run from the methylation calls to get the new values
+    - Read 2 of each read pair was called with the bisulfite strand of the opposite DNA strand (taken from the orientation of the read, `is_reverse`, instead of the strand of the read pair, the bwa-meth `YD` tag). Its CH sites were all called methylated, so these reads were discarded as high-CH reads. Expect about 1.4x more CG/CH sites covered per cell, far fewer high-CH reads (`CH_high`) and almost unchanged methylation levels
+    - The high-CH read filter (`chReadsThreshold`) is applied to all CH calls of a read. It was checked after every call, so a read was dropped as soon as more than half of its CH calls so far were methylated (for example when its first CH call was methylated), which made mCH too low
+    - The high-CH read counts per cell (`CH_high` in `cellInfo.txt`) are summed over all chromosomes (only the count of one chromosome was kept)
 # Version 1.3
 ## 1.3.0
 * Provides updated Amethyst output for v1.0.0, update your Amethyst to 1.0.0 to use final output.
